@@ -43,6 +43,8 @@ cd ..\usage
 ```BASH
 ./RUN.cmd
 ```
+### TODO
+**Negative Sampling**: Implement negative sampling to improve training efficiency. Negative sampling is an optimization technique used to approximate the softmax function in the output layer. Instead of updating the weights for all words in the vocabulary, negative sampling updates only a small number of negative samples, reducing computational complexity and speeding up the training process.
 ### Contributing
 Contributions are welcome! Please feel free to submit a pull request or open an issue if you have any suggestions or bug reports.
 ### License
