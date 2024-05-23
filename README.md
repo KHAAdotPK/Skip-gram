@@ -51,4 +51,4 @@ This project is governed by a license, the details of which can be located in th
 [Tomas Mikolov and others](https://arxiv.org/abs/1301.3781)
 
 ---
-For more detailed information on the implementation, please refer to the source code in this [repository](https://github.com/KHAAdotPK/skip-gram/tree/main/lib/WordEmbedding-Algorithms/Word2Vec/Skip-gram). Additionally, the DOCUMENTS folder contains a file named [README.md](https://github.com/KHAAdotPK/skip-gram/DOCUMENTS/README.md) which explains the Skip-gram model in the light of this implementation.
+For more detailed information on the implementation, please refer to the source code in this [repository](https://github.com/KHAAdotPK/skip-gram/tree/main/lib/WordEmbedding-Algorithms/Word2Vec/Skip-gram). Additionally, the DOCUMENTS folder contains a file named [README.md](https://github.com/KHAAdotPK/skip-gram/blob/main/DOCUMENTS/README.md) which explains the Skip-gram model in the light of this implementation.
