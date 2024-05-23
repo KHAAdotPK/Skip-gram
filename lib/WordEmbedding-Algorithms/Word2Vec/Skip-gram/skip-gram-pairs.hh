@@ -1,5 +1,5 @@
 /*
-    ML/NLP/unsupervised/Word2Vec/Skip-Gram/skip-gram-pairs.hh
+    lib/WordEmbedding-Algorithms/Word2Vec/Skip-Gram/skip-gram-pairs.hh
     Q@khaa.pk
  */
 

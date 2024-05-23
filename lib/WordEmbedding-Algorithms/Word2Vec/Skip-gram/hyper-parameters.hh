@@ -1,5 +1,5 @@
 /*
-    ML/NLP/unsupervised/Word2Vec/Skip-gram/hyper-parameters.hh
+    lib/WordEmbedding-Algorithms/ML/Word2Vec/Skip-gram/hyper-parameters.hh
     Q@khaa.pk
  */
 

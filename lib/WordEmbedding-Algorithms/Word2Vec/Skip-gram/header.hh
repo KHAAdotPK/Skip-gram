@@ -1,5 +1,5 @@
 /*
-    ML/Wordembedding-Algorithms/Word2Vec/skip-gram/header.hh
+    lib/WordEmbedding-Algorithms/Word2Vec/skip-gram/header.hh
     Q@khaa.pk
  */
 
