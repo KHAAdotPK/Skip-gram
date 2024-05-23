@@ -37,7 +37,7 @@ PULL.cmd
 ```BASH
 cd ..\usage
 ./BUILD.cmd
-# build process should result in a executable file named ./spikey.exe
+# build process should result in a executable file named ./skipy.exe
 ```
 4 **Start training the model**:
 ```BASH
