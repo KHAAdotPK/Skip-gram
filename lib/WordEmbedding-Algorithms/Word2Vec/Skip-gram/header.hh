@@ -11,7 +11,6 @@
 
 #include "hyper-parameters.hh"
 #include "../../../pairs/src/header.hh"
-//#include "skip-gram-pairs.hh"
 #include "skip-gram.hh"
 
 #endif
