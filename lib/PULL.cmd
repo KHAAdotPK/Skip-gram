@@ -7,3 +7,4 @@ git clone https://github.com/KHAAdotPK/argsv-cpp.git
 git clone https://github.com/KHAAdotPK/corpus.git
 git clone https://github.com/KHAAdotPK/Numcy.git
 git clone https://github.com/KHAAdotPK/csv.git
+git clone https://github.com/KHAAdotPK/pairs.git

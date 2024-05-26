@@ -11,15 +11,16 @@ This implementation includes the following key components:
 - **Loss Calculation**: Utilizes negative log-likelihood to measure the model's performance.
 - **Regularization**: Implements techniques to prevent overfitting.
 ### Dependencies
-1. [ala_exception](https://github.com/KHAAdotPK/ala_exception)
-2. [allocator](https://github.com/KHAAdotPK/allocator)
-3. [argsv-cpp](https://github.com/KHAAdotPK/argsv-cpp)
-4. [corpus](https://github.com/KHAAdotPK/corpus)
-5. [csv](https://github.com/KHAAdotPK/csv)
-6. [Numcy](https://github.com/KHAAdotPK/Numcy)
-7. [parser](https://github.com/KHAAdotPK/parser)
-8. [string](https://github.com/KHAAdotPK/string)
-9. [sundry](https://github.com/KHAAdotPK/sundry)
+1.  [ala_exception](https://github.com/KHAAdotPK/ala_exception)
+2.  [allocator](https://github.com/KHAAdotPK/allocator)
+3.  [argsv-cpp](https://github.com/KHAAdotPK/argsv-cpp)
+4.  [corpus](https://github.com/KHAAdotPK/corpus)
+5.  [csv](https://github.com/KHAAdotPK/csv)
+6.  [Numcy](https://github.com/KHAAdotPK/Numcy)
+7.  [pairs](https://github.com/KHAAdotPK/pairs.git)
+8.  [parser](https://github.com/KHAAdotPK/parser)
+9.  [string](https://github.com/KHAAdotPK/string)
+10. [sundry](https://github.com/KHAAdotPK/sundry)
 
 In the **lib** folder, there is a small batch file named **PULL.cmd**. Change into the lib folder and at the command prompt execute this file. It will try to clone all the above-mentioned dependencies.
 ### Getting Started
