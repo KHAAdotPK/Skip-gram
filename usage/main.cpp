@@ -180,6 +180,48 @@ int main(int argc, char* argv[])
 
     /* Start training. */                 
     SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, vocab, pairs, default_lr, default_rs, double, arg_verbose.i ? true : false);
-                
+
+    /* 
+        --------------------------------------
+       ||  We need to store the weights now  ||
+        --------------------------------------
+     */
+    
+    std::cout<< "Trained input weights written to file: " << TRAINED_INPUT_WEIGHTS_FILE_NAME << std::endl;
+
+    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < vocab.numberOfUniqueTokens(); i++)
+    {
+        cc_tokenizer::String<char> line;    
+       
+        line = line + vocab[i + INDEX_ORIGINATES_AT_VALUE] + cc_tokenizer::String<char>(" : ");
+
+        for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; j++)
+        {            
+            cc_tokenizer::String<char> num(W1[i*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + j]);
+
+            line = line + num + cc_tokenizer::String<char>(" ");         
+        }
+        
+        cc_tokenizer::cooked_write(cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME), line);
+    }
+
+    std::cout<< "Trained output weights written to file: " << TRAINED_OUTPUT_WEIGHTS_FILE_NAME << std::endl;
+
+    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < vocab.numberOfUniqueTokens(); i++)
+    {
+        cc_tokenizer::String<char> line; 
+
+        line = line + vocab[i + INDEX_ORIGINATES_AT_VALUE] + cc_tokenizer::String<char>(" : ");
+
+        for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; j++)
+        {
+            cc_tokenizer::String<char> num(W2[j*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i]);
+
+            line = line + num + cc_tokenizer::String<char>(" ");
+        }
+
+        cc_tokenizer::cooked_write(cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME), line);    
+    }
+               
     return 0;
 }

@@ -9,6 +9,8 @@
 #define WORD_EMBEDDING_ALGORITHMS_SKIP_GRAM_USAGE_MAIN_HH
 
 #define SKIP_GRAM_DEFAULT_CORPUS_FILE ".\\data\\corpus.txt"
+#define TRAINED_INPUT_WEIGHTS_FILE_NAME     "W1trained.txt"
+#define TRAINED_OUTPUT_WEIGHTS_FILE_NAME    "W2trained.txt"
 
 #ifdef GRAMMAR_END_OF_TOKEN_MARKER
 #undef GRAMMAR_END_OF_TOKEN_MARKER
@@ -22,6 +24,7 @@
 
 #include "../lib/argsv-cpp/lib/parser/parser.hh"
 #include "../lib/sundry/cooked_read_new.hh"
+#include "../lib/sundry/cooked_write_new.hh"
 
 #include "../lib/WordEmbedding-Algorithms/Word2Vec/skip-gram/header.hh"
 
