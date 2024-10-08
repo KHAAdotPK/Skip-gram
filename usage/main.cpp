@@ -193,15 +193,28 @@ int main(int argc, char* argv[])
     {
         cc_tokenizer::String<char> line;    
        
-        line = line + vocab[i + INDEX_ORIGINATES_AT_VALUE] + cc_tokenizer::String<char>(" : ");
+        line = line + vocab[i + INDEX_ORIGINATES_AT_VALUE] + cc_tokenizer::String<char>(" ");
 
-        for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; j++)
+        cc_tokenizer::string_character_traits<char>::size_type j = 0;
+
+        for (; j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE;)
         {            
             cc_tokenizer::String<char> num(W1[i*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + j]);
 
-            line = line + num + cc_tokenizer::String<char>(" ");         
+            j++;
+
+            if (j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+            {    
+                line = line + num + cc_tokenizer::String<char>(" ");
+            }
+            else
+            {
+                line = line + num;
+            }
         }
         
+        line = line + cc_tokenizer::String<char>("\n");
+
         cc_tokenizer::cooked_write(cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME), line);
     }
 
@@ -211,14 +224,27 @@ int main(int argc, char* argv[])
     {
         cc_tokenizer::String<char> line; 
 
-        line = line + vocab[i + INDEX_ORIGINATES_AT_VALUE] + cc_tokenizer::String<char>(" : ");
+        line = line + vocab[i + INDEX_ORIGINATES_AT_VALUE] + cc_tokenizer::String<char>(" ");
 
-        for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; j++)
+        cc_tokenizer::string_character_traits<char>::size_type j = 0;
+
+        for (; j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE;)
         {
             cc_tokenizer::String<char> num(W2[j*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i]);
 
-            line = line + num + cc_tokenizer::String<char>(" ");
+            j++;
+
+            if (j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+            {    
+                line = line + num + cc_tokenizer::String<char>(" ");
+            }
+            else
+            {
+                line = line + num;
+            }
         }
+
+        line = line + cc_tokenizer::String<char>("\n");
 
         cc_tokenizer::cooked_write(cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME), line);    
     }
