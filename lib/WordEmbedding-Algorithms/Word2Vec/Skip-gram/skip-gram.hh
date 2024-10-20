@@ -690,7 +690,30 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF 
         }
 
         h = Collective<T>{h_ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), 1, NULL, NULL}};
+        /*	
+            Represents an intermediat gradient.	 
+            This vector has shape (1, len(vocab)), similar to y_pred. 
+            It represents the result of the dot product operation between the center or target word vector "h" and the weight matrix W2.
+            The result stored in "u” captures the combined influence of hidden neurons on predicting context words. It provides a
+            numerical representation of how likely each word in the vocabulary is to be a context word of a given target 
+            word (within the skip-gram model).
+
+            The variable "u" serves as an intermediary step in the forward pass, representing the activations before applying 
+            the “softmax” function to generate the predicted probabilities. 
+
+            It represents internal state in the neural network during the working of "forward pass".
+            This intermediate value is used in calculations involving gradients in "backward pass" or "back propogation"(the function backward).
+         
+            The dot product gives us the logits or unnormalized probabilities (u), 
+            which can then be transformed into probabilities using a softmax function
+         */            
         u = Numcy::dot(h, W2);
+        /*
+            The resulting vector (u) is passed through a softmax function to obtain the predicted probabilities (y_pred). 
+            The softmax function converts the raw scores into probabilities.
+
+            In `Skip-gram`, this output represents the likelihood of each word being one of the context words for the given center word.
+         */
         y_pred = softmax(u);
                 
         cc_tokenizer::allocator<T>().deallocate(h_ptr);
@@ -770,7 +793,20 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
                 oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
             }        
         }
+        /* 
+            The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1, len(vocab) without redundency)
 
+            Compute the gradient for the center word's embedding by subtracting the one-hot vector of the actual context word
+            from the predicted probability distribution.
+            `fp.predicted_probabilities` contains the predicted probabilities over all words in the vocabulary.
+            `oneHot` is a one-hot vector representing the true context word in the vocabulary.
+            The result, `grad_u`, is the error signal for updating the center word's embedding in the Skip-gram model.
+
+            what is an error signal?
+            -------------------------
+            1. For the correct context word (where oneHot is 1), the gradient is (predicted_probabilities - 1), meaning the model's prediction was off by that much.
+            2. For all other words (where oneHot is 0), the gradient is simply predicted_probabilities, meaning the model incorrectly assigned a nonzero probability to these words(meaning the model's prediction was off by that much, which the whole of predicted_probability for that out of context word).        
+         */        
         grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
 
         grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);

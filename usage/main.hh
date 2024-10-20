@@ -25,6 +25,7 @@
 #include "../lib/argsv-cpp/lib/parser/parser.hh"
 #include "../lib/sundry/cooked_read_new.hh"
 #include "../lib/sundry/cooked_write_new.hh"
+#include "../lib/read_write_weights/header.hh"
 
 #include "../lib/WordEmbedding-Algorithms/Word2Vec/skip-gram/header.hh"
 

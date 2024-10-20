@@ -189,6 +189,7 @@ int main(int argc, char* argv[])
     
     std::cout<< "Trained input weights written to file: " << TRAINED_INPUT_WEIGHTS_FILE_NAME << std::endl;
 
+    /*
     for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < vocab.numberOfUniqueTokens(); i++)
     {
         cc_tokenizer::String<char> line;    
@@ -216,10 +217,14 @@ int main(int argc, char* argv[])
         line = line + cc_tokenizer::String<char>("\n");
 
         cc_tokenizer::cooked_write(cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME), line);
-    }
+    } 
+     */
+
+    WRITE_W1(W1, cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME), vocab);
 
     std::cout<< "Trained output weights written to file: " << TRAINED_OUTPUT_WEIGHTS_FILE_NAME << std::endl;
 
+    /*
     for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < vocab.numberOfUniqueTokens(); i++)
     {
         cc_tokenizer::String<char> line; 
@@ -248,6 +253,9 @@ int main(int argc, char* argv[])
 
         cc_tokenizer::cooked_write(cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME), line);    
     }
+     */
+
+    WRITE_W2(W2, cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME), vocab);
                
     return 0;
 }
