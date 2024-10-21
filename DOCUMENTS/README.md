@@ -114,7 +114,7 @@ for (int i = 0; i < SKIP_GRAM_WINDOW_SIZE; i++)
 Collective<double> grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
 Collective<double> grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);
 Collective<double> W2_T = Numcy::transpose(W2);
-Collective<double> = grad_h = Numcy::dot(grad_u, W2_T);
+Collective<double> grad_h = Numcy::dot(grad_u, W2_T);
 /*
     Weight Updates:
     1. The loop updates grad_W1 by accumulating the gradients with respect to 𝑊1 for the center word.
