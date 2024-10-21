@@ -29,7 +29,7 @@ struct WordPairs
 #define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 100
 Collective<double> W1 = Numcy::Random::randn<double>(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
 ```
-The hidden layer size is typically denoted by 𝑁 and represents the embedding dimensions. It is one of the hyperparameters. The input layer is connected to the hidden layer through a weight matrix 𝑊1 of size 𝑉×𝑁. Each row of 𝑊1 holds the embedding of one specific target/center word. The hidden layer represents one embedding vector (of the input/target/center word), computed as ℎ=𝑊1^T𝑥, out of the 𝑉 possible embeddings in 𝑊1. During training, this operation is performed for each target word in the input data, typically processed in batches that are smaller than the entire vocabulary, across all epochs(our vocabulary is small so our bachsize is V).
+The hidden layer size is typically denoted by 𝑁 and represents the embedding dimensions. It is one of the hyperparameters. The input layer is connected to the hidden layer through a weight matrix 𝑊1 of size 𝑉×𝑁. Each row of 𝑊1 holds the embedding of one specific target/center word. The hidden layer represents one embedding vector (of the input/target/center word), computed as ℎ=(𝑊1^T)𝑥 **(** `where 𝑥 is one-hot encoded vector` and instead of **one-hot vector** we are using **pairs** **)**, out of the `𝑉` possible embeddings in 𝑊1. During training, this operation is performed for each target word in the input data, typically processed in batches that are smaller than the entire vocabulary, across all epochs(our vocabulary is small so our bachsize is V).
 ```C++
 #define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 100
 T* h_ptr = cc_tokenizer::allocator<T>().allocate(W1.getShape().getNumberOfColumns());
@@ -67,7 +67,7 @@ The hidden layer is connected to the output layer through another weight matrix 
 ```C++
 Collective<double> W2 = Numcy::Random::randn(DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL});
 ```
-+ The output layer produces a score for each word in the vocabulary, typically using the softmax function to convert scores into probabilities **scores=W2^T*h** and **probabilities=softmax(scores)**
++ The output layer produces a score for each word in the vocabulary, typically using the softmax function to convert scores into probabilities **scores=(W2^T)*h** and **probabilities=softmax(scores)**
 ```C++
 /*
     Hidden layer and output layer operations:
@@ -76,8 +76,8 @@ Collective<double> W2 = Numcy::Random::randn(DIMENSIONS{vocab.numberOfUniqueToke
     3. The softmax function converts these scores into probabilities. 
  */
 Collective<T> h = Collective<T>{h_ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), 1, NULL, NULL}};
-Collective<T> u = Numcy::dot(h, W2);
-Collective<T> y_pred = softmax(u);
+Collective<T> u /* scores */ = Numcy::dot(h, W2);
+Collective<T> y_pred = softmax(u /* scores */);
 
 /*
     One-Hot Encoding of Context Words:
