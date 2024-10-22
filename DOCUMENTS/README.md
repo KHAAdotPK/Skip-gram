@@ -8,7 +8,7 @@ In terms of neural network terminology, here's how our implementation of skip-gr
 ~~What is a One-Hot Encoded Vector?
 A one-hot encoded vector is a representation of a categorical variable (like a word) as a binary vector. If the vocabulary size is 
 𝑉, each word can be represented as a one-hot encoded vector of size 𝑉. In a one-hot encoded vector, one element is 1 (indicating the presence of the word), and all other elements are 0.~~
-**Instead of one-hot vector this implementation uses a linkedlist of pairs**... 
+**Instead of one-hot vector this implementation uses a linkedlist of** [pairs](https://github.com/KHAAdotPK/pairs)... 
 The input vector x(it is linked list of pairs, each pair has a center/target word and corresponding context words on its left and right. Number of context words on each side of center/target words is determined by the macro SKIP_GRAM_WINDOW_SIZE. This macro is a hyperparameter). The size or the number of links in this linked list is equal to the number of unique(no redundency) words in the vocabulary, if number of such words is V then linkned list will have V many links as well. 
  ```C++
 struct WordPairs 
