@@ -686,7 +686,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF 
             if (_isnanf(h_ptr[i]))
             {        
                 throw ala_exception(cc_tokenizer::String<char>("forward() Error: Hidden layer at ") + cc_tokenizer::String<char>("(W1 row) center word index ") +  cc_tokenizer::String<char>(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + cc_tokenizer::String<char>(" and (column index) i -> ") + cc_tokenizer::String<char>(i) + cc_tokenizer::String<char>(" -> [ ") + cc_tokenizer::String<char>("_isnanf() was true") + cc_tokenizer::String<char>("\" ]"));
-            } 
+            }             
         }
 
         h = Collective<T>{h_ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), 1, NULL, NULL}};
@@ -707,15 +707,18 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF 
             The dot product gives us the logits or unnormalized probabilities (u), 
             which can then be transformed into probabilities using a softmax function
          */            
-        u = Numcy::dot(h, W2);
+        u = Numcy::dot(h, W2);        
         /*
             The resulting vector (u) is passed through a softmax function to obtain the predicted probabilities (y_pred). 
             The softmax function converts the raw scores into probabilities.
 
+            Ensure that y_pred has valid probability values (between 0 and 1). The implementation is correct and that it normalizes the probabilities correctly, 
+            i.e., all values should sum up to 1. If there's a bug in the softmax calculation, it might return incorrect values (like 0 or very small numbers).
+
             In `Skip-gram`, this output represents the likelihood of each word being one of the context words for the given center word.
          */
         y_pred = softmax(u);
-                
+                        
         cc_tokenizer::allocator<T>().deallocate(h_ptr);
         h_ptr = NULL;
     }
