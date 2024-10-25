@@ -6,6 +6,8 @@
 #ifndef WORD_EMBEDDING_ALGORITHMS_SKIP_GRAM_HH
 #define WORD_EMBEDDING_ALGORITHMS_SKIP_GRAM_HH
 
+#define GO_FOR_L1_CODE_BLOCK
+
 #include "header.hh"
 
 template<typename E>
@@ -781,6 +783,11 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
             The following code block, iterates through the context word indices (left and right) from the pair object.
             For each valid context word index (i), it sets the corresponding element in the oneHot vector to 1.
             This effectively creates a one-hot encoded representation of the context words.
+            
+            Note: We are only handling unique tokens. Therefore, in some cases,
+            the number of one-hot encoded vectors may be less than the total number
+            of context words. This occurs when a single one-hot vector represents 
+            multiple occurrences of the same token within the context.            
          */
         for (int i = SKIP_GRAM_WINDOW_SIZE - 1; i >= 0; i--)
         {       
@@ -796,27 +803,81 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
                 oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
             }        
         }
+
+        /*           
+            Note: We are only handling unique tokens. Therefore, in some cases,
+            the number of one-hot encoded vectors may be less than the total number
+            of context words. This occurs when a single one-hot vector represents 
+            multiple occurrences of the same token within the context.
+
+            for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
+            {
+                if (oneHot[i] == 1)
+                {
+                    std::cout<< oneHot[i] << ", ";
+                }
+            }
+            std::cout<< std::endl;
+         */
+    
         /* 
             The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1, len(vocab) without redundency)
 
             Compute the gradient for the center word's embedding by subtracting the one-hot vector of the actual context word
             from the predicted probability distribution.
-            `fp.predicted_probabilities` contains the predicted probabilities over all words in the vocabulary.
+            `fp.predicted_probabilities` contains the predicted probabilities over all words in the vocabulary. 
+                -> If fp.predicted_probabilities[i] is a small probability (close to zero like 1.70794e-18), it means the model is quite confident that class i is not the correct label.
+                -> Floating-Point Precision: Very small probabilities close to zero (like 1.7×10e^−18) can sometimes appear as exactly zero due to precision limits, 
+                   but this is generally fine for gradient computation as the training process accounts for it.
             `oneHot` is a one-hot vector representing the true context word in the vocabulary.
             The result, `grad_u`, is the error signal for updating the center word's embedding in the Skip-gram model.
 
             what is an error signal?
             -------------------------
             1. For the correct context word (where oneHot is 1), the gradient is (predicted_probabilities - 1), meaning the model's prediction was off by that much.
-            2. For all other words (where oneHot is 0), the gradient is simply predicted_probabilities, meaning the model incorrectly assigned a nonzero probability to these words(meaning the model's prediction was off by that much, which the whole of predicted_probability for that out of context word).        
+            2. For all other words (where oneHot is 0), the gradient is simply predicted_probabilities, meaning the model incorrectly assigned a nonzero probability to these words(meaning the model's prediction was off by that much, which the whole of predicted_probability for that out of context word).
+            3. If the large gradients cause instability, consider gradient clipping. So, a gradient of −1 or even 1 in this context is manageable and not unusual.
+               When we mention "large gradients" in the context of gradient clipping, we’re generally referring to situations where values might spike significantly higher,
+               leading to instability—often in ranges much higher than 1, sometimes reaching orders of magnitude greater depending on the scale of your loss function and the learning rate.
          */        
         grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
 
-        grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);
+        /*
+        for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
+        {                        
+            //std::cout<< grad_u[i] << ", ";
 
+            if (_isnanf(grad_u[i]))
+            {        
+                throw ala_exception(cc_tokenizer::String<char>("backward() Error: gradient for the center word ") + cc_tokenizer::String<char>("(grad_u) at index ") +  cc_tokenizer::String<char>(i) + cc_tokenizer::String<char>("_isnanf() was true"));
+            }
+            else if (grad_u[i] == 0)
+            {
+                throw ala_exception("backward() Error: gradient for the center word is zero in grad_u"); 
+            }
+
+            if (oneHot[i] == 1)
+            {
+                std::cout << "y_pred[i] = " << fp.predicted_probabilities[i] << "  <<--->>  " <<  fp.predicted_probabilities[i] - oneHot[i] << " , " << grad_u[i] << " --- ";
+            }  
+        }
+        std::cout<< std::endl;
+         */
+
+        grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);
+        
         W2_T = Numcy::transpose(W2);
+
+        /*
+        std::cout<< grad_u.getShape().getNumberOfColumns() << " ------- " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+        std::cout<< W2_T.getShape().getNumberOfColumns() << " ------- " << W2_T.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+         */
                 
         grad_h = Numcy::dot(grad_u, W2_T);
+
+        /*
+        std::cout<< grad_h.getShape().getNumberOfColumns() << " ------------------------- " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+         */
 
         grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
 
@@ -973,77 +1034,11 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
             {\
                 std::cout<< "SKIP_GRAM_TRAINIG_LOOP -> " << e.what() << std::endl;\
             }\
-            /* L1 regularization, WIP(Work in proess) */\
-            Collective<t> summed;\
-            Collective<t> Wx_signs;\
-            try\
-            {\
-                /*Extract the corresponding word embedding from the weight matrix 𝑊1.\
-                  Instead of directly using a one-hot input vector, this implementation uses a linked list of word pairs.\
-                  Each pair provides the index of the center word, which serves to extract the relevant embedding from 𝑊1.\
-                  The embedding for the center word is stored in the hidden layer vector h.*/\
-                t* ptr = cc_tokenizer::allocator<t>().allocate(W1.getShape().getNumberOfColumns());\
-                /*Loop through the columns of W1 to extract the embedding for the center word.*/\
-                for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W1.getShape().getNumberOfColumns(); i++)\
-                {\
-                    ptr[i] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + i];\
-                }\
-                /*Create a vector 'target_W1_row_signs' that contains the sign of each element in the selected row of the weight matrix W1.*/\
-                /*Collective<t> */Wx_signs = Numcy::sign(Collective<t>{ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), 1, NULL, NULL}});\
-                /*Allocate memory for a single element of type 't'.\
-                  This element will hold the regularization strength (rs), which is a hyperparameter used to tune the model.*/\
-                t* multiplier = cc_tokenizer::allocator<t>().allocate(1);\
-                *multiplier = rs;\
-                Collective<t> regularization_strength = Collective<t>{multiplier, DIMENSIONS{1, 1, NULL, NULL}};\
-                /*Compute the dot product between the 'target_W1_row_signs' vector and the 'regularization_strength'.\
-                 'target_W1_row_signs' contains the signs of the elements in the selected row of the weight matrix W1.\
-                 'regularization_strength' is a scalar value representing the regularization strength (rs).\
-                 The result 'product' will be used to apply regularization to the model's parameters.*/\
-                Collective<t> product = Numcy::dot(Wx_signs, regularization_strength);\
-                /*std::cout<< product.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << ", " << product.getShape().getNumberOfColumns() << std::endl;*/\
-                /*std::cout<< bp.grad_weights_input_to_hidden.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << ", " << bp.grad_weights_input_to_hidden.getShape().getNumberOfColumns() << std::endl;*/\
-                /*Compute the element-wise sum of the gradient matrix 'bp.grad_weights_input_to_hidden' and the 'product' matrix along the specified axis (rows).\
-                  'bp.grad_weights_input_to_hidden' contains the gradients with respect to the weights between the input and hidden layers.\
-                  'product' is the result of the dot product of 'target_W1_row_signs' and 'regularization_strength'.\
-                  The 'AXIS_ROWS' parameter specifies that the sum operation is performed along the rows of the matrices.\
-                  The result 'summed' will hold the updated gradient values, incorporating both the original gradients and the regularization term.*/\
-                /*Collective<t>*/ summed = Numcy::sum(bp.grad_weights_input_to_hidden, product, AXIS_ROWS);\
-                /*std::cout<< summed.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << ", " << summed.getShape().getNumberOfColumns() << std::endl;*/\
-                /*std::cout<< bp.grad_weights_input_to_hidden.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << ", " << bp.grad_weights_input_to_hidden.getShape().getNumberOfColumns() << std::endl;*/\
-                /*Update the gradient matrix 'bp.grad_weights_input_to_hidden' with the new values computed in 'summed'.\
-                  Iterate over each element in the gradient matrix 'bp.grad_weights_input_to_hidden'.\
-                  The loop runs from 0 to the total number of elements in 'grad_weights_input_to_hidden'.\
-                  For each element, assign the corresponding value from the 'summed' matrix to 'bp.grad_weights_input_to_hidden'.\
-                  This ensures that the gradient matrix now contains the updated gradients, including the regularization term.*/\
-                for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < bp.grad_weights_input_to_hidden.getShape().getN(); i++)\
-                {\
-                    bp.grad_weights_input_to_hidden[i] = summed[i];\
-                }\
-                /*Collective<t> */Wx_signs = Numcy::sign(W2);\
-                product = Numcy::dot(Wx_signs, regularization_strength);\
-                summed = Numcy::sum(W2, product, AXIS_NONE);\
-                for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W2.getShape().getN(); i++)\
-                {\
-                    W2[i] = summed[i];\
-                }\
-            }\
-            catch (std::length_error& e)\
-            {\
-                std::cout<< "SKIP_GRAM_TRAINIG_LOOP -> " << e.what() << std::endl;\
-            }\
-            catch(std::bad_alloc& e)\
-            {\
-                std::cout<< "SKIP_GRAM_TRAINIG_LOOP -> " << e.what() << std::endl;\
-            }\
-            catch (ala_exception& e)\
-            {\
-                std::cout<< "SKIP_GRAM_TRAINIG_LOOP -> " << e.what() << std::endl;\
-            }\
             /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
                In NLL, lower values indicate better performance. */\
             el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
         }\
-        std::cout<< "epoch_loss = " << el/pairs.get_number_of_word_pairs() << std::endl;\
+        std::cout<< "epoch_loss = (" << el << "), " << el/pairs.get_number_of_word_pairs() << std::endl;\
     }\
 }\
 

@@ -1,2 +1,2 @@
-cl main.cpp /EHsc /Foskipy.obj /Feskipy.exe 
+cl main.cpp /DINCLUDE_L1_CODE_BLOCK /EHsc /Foskipy.obj /Feskipy.exe 
 

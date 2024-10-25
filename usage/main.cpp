@@ -178,6 +178,49 @@ int main(int argc, char* argv[])
 
     double epoch_loss = 0.0;
 
+    /*
+               ---- 
+            ----------  
+           ----------------     
+        ----------------------
+        FOR DEBUGGING PURPOSES
+        ----------------------
+           ----------------
+              ----------
+                 ----          
+     */
+    /*
+    try 
+    {    
+        Numcy::Random::shuffle<PAIRS>(pairs, pairs.get_number_of_word_pairs());
+        while (pairs.go_to_next_word_pair() != cc_tokenizer::string_character_traits<char>::eof())
+        {
+            WORDPAIRS_PTR pair = pairs.get_current_word_pair();
+
+            forward_propogation<double> fp = forward(W1, W2, vocab, pair); 
+            std::cout<< "---------------------------------------------------------------------------------" << std::endl;         
+            backward_propogation<double> bp = backward(W1, W2, vocab, fp, pair, false);
+        }
+        std::cout<< std::endl;
+    }
+    catch (ala_exception &e)
+    {
+        std::cout<< e.what() << std::endl;
+    }
+     */
+    /*
+                 -------------- 
+              --------------------  
+           --------------------------     
+        --------------------------------
+        FOR DEBUGGING PURPOSES ENDS HERE
+        --------------------------------
+           --------------------------
+              --------------------
+                 --------------          
+     */ 
+
+    
     /* Start training. */                 
     SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, vocab, pairs, default_lr, default_rs, double, arg_verbose.i ? true : false);
 
