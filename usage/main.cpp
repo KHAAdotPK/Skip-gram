@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
         FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_loop);
         if (arg_loop.argc)
         {
-            default_loop =  default_loop + atol(argv[arg_rs.j]);
+            default_loop =  default_loop + atol(argv[arg_loop.j]);
         }
         else
         {   
