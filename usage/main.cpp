@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[])
 { 
-    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose;
+    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
 
@@ -32,6 +32,7 @@ int main(int argc, char* argv[])
     FIND_ARG(argv, argc, argsv_parser, "corpus", arg_corpus);
     FIND_ARG(argv, argc, argsv_parser, "lr", arg_lr);
     FIND_ARG(argv, argc, argsv_parser, "rs", arg_rs);
+    FIND_ARG(argv, argc, argsv_parser, "loop", arg_loop);
 
     if (arg_corpus.i)
     {
@@ -128,6 +129,20 @@ int main(int argc, char* argv[])
             default_rs = atof(argv[arg_rs.j]);
         }
     }
+
+    long default_loop = 1;
+    if (arg_loop.i)
+    {
+        FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_loop);
+        if (arg_loop.argc)
+        {
+            default_loop =  default_loop + atol(argv[arg_rs.j]);
+        }
+        else
+        {   
+            default_loop = default_loop + 1;
+        }
+    }
     
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> data_parser(data);
     class Corpus vocab(data_parser);
@@ -221,8 +236,11 @@ int main(int argc, char* argv[])
      */ 
 
     
-    /* Start training. */                 
-    SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, vocab, pairs, default_lr, default_rs, double, arg_verbose.i ? true : false);
+    /* Start training. */
+    for (long i = 0; i < default_loop; i++)
+    {
+        SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, vocab, pairs, default_lr, default_rs, double, arg_verbose.i ? true : false);
+    }
 
     /* 
         --------------------------------------
