@@ -42,6 +42,8 @@ corpus --corpus (Specifies the path to the file containing the training data.)\n
 verbose --verbose (Enables detailed output for each operation during execution.)\n\
 lr --lr learningrate (Defines the learning rate parameter to control the rate of convergence.)\n\
 rs --rs (Sets the regularization strength, used to prevent overfitting.)\n\
-loop --loop (Repeats the training loop on previously trained weights at least one additional time.)\n"
+loop --loop (Repeats the training loop on previously trained weights at least one additional time.)\n\
+batch --batch (Loads initial weights from a specified file, allowing batch processing with predefined starting weights.)\n\
+output --output (Specifies the filename to store the trained weights after completion of training.)\n"
 
 #endif
