@@ -1,0 +1,224 @@
+F:\Skip-gram\usage>.\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 30 rs 0.0001 loop 2 verbose
+Corpus: ./INPUT.txt
+Epoch# 1 of 30 epochs.
+epoch_loss = (2857.15), 19.4364
+Epoch# 2 of 30 epochs.
+epoch_loss = (2856.85), 19.4344
+Epoch# 3 of 30 epochs.
+epoch_loss = (2856.48), 19.4318
+Epoch# 4 of 30 epochs.
+epoch_loss = (2856.13), 19.4294
+Epoch# 5 of 30 epochs.
+epoch_loss = (2855.65), 19.4262
+Epoch# 6 of 30 epochs.
+epoch_loss = (2855.4), 19.4245
+Epoch# 7 of 30 epochs.
+epoch_loss = (2855.28), 19.4237
+Epoch# 8 of 30 epochs.
+epoch_loss = (2855.17), 19.4229
+Epoch# 9 of 30 epochs.
+epoch_loss = (2854.78), 19.4203
+Epoch# 10 of 30 epochs.
+epoch_loss = (2854.47), 19.4182
+Epoch# 11 of 30 epochs.
+epoch_loss = (2854.2), 19.4163
+Epoch# 12 of 30 epochs.
+epoch_loss = (2853.99), 19.4149
+Epoch# 13 of 30 epochs.
+epoch_loss = (2853.88), 19.4142
+Epoch# 14 of 30 epochs.
+epoch_loss = (2853.65), 19.4126
+Epoch# 15 of 30 epochs.
+epoch_loss = (2853.26), 19.4099
+Epoch# 16 of 30 epochs.
+epoch_loss = (2853.36), 19.4106
+Epoch# 17 of 30 epochs.
+epoch_loss = (2853.46), 19.4113
+Epoch# 18 of 30 epochs.
+epoch_loss = (2853), 19.4081
+Epoch# 19 of 30 epochs.
+epoch_loss = (2852.89), 19.4074
+Epoch# 20 of 30 epochs.
+epoch_loss = (2852.84), 19.4071
+Epoch# 21 of 30 epochs.
+epoch_loss = (2852.56), 19.4052
+Epoch# 22 of 30 epochs.
+epoch_loss = (2852.35), 19.4037
+Epoch# 23 of 30 epochs.
+epoch_loss = (2852.58), 19.4053
+Epoch# 24 of 30 epochs.
+epoch_loss = (2852.35), 19.4038
+Epoch# 25 of 30 epochs.
+epoch_loss = (2852.19), 19.4027
+Epoch# 26 of 30 epochs.
+epoch_loss = (2852.16), 19.4025
+Epoch# 27 of 30 epochs.
+epoch_loss = (2852.08), 19.4019
+Epoch# 28 of 30 epochs.
+epoch_loss = (2851.85), 19.4004 // Reduction in epcoh loss uptill this point
+Epoch# 29 of 30 epochs.
+epoch_loss = (2852.13), 19.4023
+Epoch# 30 of 30 epochs.
+
+epoch_loss = (2852.1), 19.402
+Epoch# 1 of 30 epochs.
+epoch_loss = (2852.15), 19.4024
+Epoch# 2 of 30 epochs.
+epoch_loss = (2852.01), 19.4014
+Epoch# 3 of 30 epochs.
+epoch_loss = (2851.73), 19.3995
+Epoch# 4 of 30 epochs.
+epoch_loss = (2852.07), 19.4019
+Epoch# 5 of 30 epochs.
+epoch_loss = (2852.1), 19.4021
+Epoch# 6 of 30 epochs.
+epoch_loss = (2852.12), 19.4022
+Epoch# 7 of 30 epochs.
+epoch_loss = (2852.4), 19.4041
+Epoch# 8 of 30 epochs.
+epoch_loss = (2852.27), 19.4032
+Epoch# 9 of 30 epochs.
+epoch_loss = (2852.26), 19.4031
+Epoch# 10 of 30 epochs.
+epoch_loss = (2852.6), 19.4055
+Epoch# 11 of 30 epochs.
+epoch_loss = (2852.34), 19.4036
+Epoch# 12 of 30 epochs.
+epoch_loss = (2852.4), 19.4041
+Epoch# 13 of 30 epochs.
+epoch_loss = (2852.47), 19.4046
+Epoch# 14 of 30 epochs.
+epoch_loss = (2852.79), 19.4068
+Epoch# 15 of 30 epochs.
+epoch_loss = (2853.03), 19.4084
+Epoch# 16 of 30 epochs.
+epoch_loss = (2853.16), 19.4093
+Epoch# 17 of 30 epochs.
+epoch_loss = (2853.18), 19.4094
+Epoch# 18 of 30 epochs.
+epoch_loss = (2853.2), 19.4095
+Epoch# 19 of 30 epochs.
+epoch_loss = (2853.45), 19.4112
+Epoch# 20 of 30 epochs.
+epoch_loss = (2854.06), 19.4154
+Epoch# 21 of 30 epochs.
+epoch_loss = (2854.03), 19.4152
+Epoch# 22 of 30 epochs.
+epoch_loss = (2854.18), 19.4162
+Epoch# 23 of 30 epochs.
+epoch_loss = (2854.24), 19.4166
+Epoch# 24 of 30 epochs.
+epoch_loss = (2854.66), 19.4195
+Epoch# 25 of 30 epochs.
+epoch_loss = (2855.05), 19.4221
+Epoch# 26 of 30 epochs.
+epoch_loss = (2855.15), 19.4228
+Epoch# 27 of 30 epochs.
+epoch_loss = (2855.26), 19.4235
+Epoch# 28 of 30 epochs.
+epoch_loss = (2855.87), 19.4277
+Epoch# 29 of 30 epochs.
+epoch_loss = (2856.35), 19.431
+Epoch# 30 of 30 epochs.
+
+epoch_loss = (2856.45), 19.4316
+Epoch# 1 of 30 epochs.
+epoch_loss = (2856.6), 19.4326
+Epoch# 2 of 30 epochs.
+epoch_loss = (2857.09), 19.436
+Epoch# 3 of 30 epochs.
+epoch_loss = (2857.12), 19.4362
+Epoch# 4 of 30 epochs.
+epoch_loss = (2857.61), 19.4395
+Epoch# 5 of 30 epochs.
+epoch_loss = (2857.87), 19.4413
+Epoch# 6 of 30 epochs.
+epoch_loss = (2858.23), 19.4437
+Epoch# 7 of 30 epochs.
+epoch_loss = (2858.76), 19.4473
+Epoch# 8 of 30 epochs.
+epoch_loss = (2859.18), 19.4502
+Epoch# 9 of 30 epochs.
+epoch_loss = (2859.63), 19.4532
+Epoch# 10 of 30 epochs.
+epoch_loss = (2859.74), 19.454
+Epoch# 11 of 30 epochs.
+epoch_loss = (2860.29), 19.4578
+Epoch# 12 of 30 epochs.
+epoch_loss = (2860.73), 19.4607
+Epoch# 13 of 30 epochs.
+epoch_loss = (2861.15), 19.4636
+Epoch# 14 of 30 epochs.
+epoch_loss = (2861.73), 19.4675
+Epoch# 15 of 30 epochs.
+epoch_loss = (2862.07), 19.4699
+Epoch# 16 of 30 epochs.
+epoch_loss = (2862.5), 19.4728
+Epoch# 17 of 30 epochs.
+epoch_loss = (2863.15), 19.4772
+Epoch# 18 of 30 epochs.
+epoch_loss = (2863.78), 19.4815
+Epoch# 19 of 30 epochs.
+epoch_loss = (2864.23), 19.4846
+Epoch# 20 of 30 epochs.
+epoch_loss = (2864.7), 19.4877
+Epoch# 21 of 30 epochs.
+epoch_loss = (2865.2), 19.4912
+Epoch# 22 of 30 epochs.
+epoch_loss = (2865.58), 19.4938
+Epoch# 23 of 30 epochs.
+epoch_loss = (2866.68), 19.5012
+Epoch# 24 of 30 epochs.
+epoch_loss = (2867.26), 19.5052
+Epoch# 25 of 30 epochs.
+epoch_loss = (2867.47), 19.5066
+Epoch# 26 of 30 epochs.
+epoch_loss = (2868.05), 19.5105
+Epoch# 27 of 30 epochs.
+epoch_loss = (2868.83), 19.5158
+Epoch# 28 of 30 epochs.
+epoch_loss = (2869.37), 19.5195
+Epoch# 29 of 30 epochs.
+epoch_loss = (2870.02), 19.5239
+Epoch# 30 of 30 epochs.
+epoch_loss = (2870.66), 19.5283
+Trained input weights written to file: W1trained.txt
+Trained output weights written to file: W2trained.txt
+PS F:\Skip-gram\usage>
+
+F:\Chat-Bot-Skip-gram\usage>.\weights.exe words sunshine time soni kisses sunshine mamal bowhead whale
+Total number of lines in file "w1trained.txt" : 120
+Total number of tokens per line in file "w1trained.txt" : 51
+Dimensions of W1 = 120 X 50
+Dimensions of W2 = 50 X 120
+Line number = 0 - sunshine, Line number = 114 - time
+Cosine Similarity = 0.0743548, Cosine Distance = 0.925645
+Line number = 0 - sunshine, Line number = 1 - kisses
+Cosine Similarity = 0.222008, Cosine Distance = 0.777992 // Better Cosine Similarity
+Line number = 0 - sunshine, Line number = 0 - sunshine
+Cosine Similarity = 1, Cosine Distance = -2.22045e-16
+Line number = 0 - sunshine, Line number = 115 - bowhead
+Cosine Similarity = 0.12397, Cosine Distance = 0.87603
+Line number = 0 - sunshine, Line number = 116 - whale
+Cosine Similarity = 0.111106, Cosine Distance = 0.888894
+Line number = 114 - time, Line number = 1 - kisses
+Cosine Similarity = -0.101813, Cosine Distance = 0.898187
+Line number = 114 - time, Line number = 0 - sunshine
+Cosine Similarity = 0.0743548, Cosine Distance = 0.925645
+Line number = 114 - time, Line number = 115 - bowhead
+Cosine Similarity = 0.103009, Cosine Distance = 0.896991
+Line number = 114 - time, Line number = 116 - whale
+Cosine Similarity = -0.00618683, Cosine Distance = 0.993813
+Line number = 1 - kisses, Line number = 0 - sunshine
+Cosine Similarity = 0.222008, Cosine Distance = 0.777992
+Line number = 1 - kisses, Line number = 115 - bowhead
+Cosine Similarity = 0.142992, Cosine Distance = 0.857008
+Line number = 1 - kisses, Line number = 116 - whale
+Cosine Similarity = -0.0891199, Cosine Distance = 0.91088
+Line number = 0 - sunshine, Line number = 115 - bowhead
+Cosine Similarity = 0.12397, Cosine Distance = 0.87603
+Line number = 0 - sunshine, Line number = 116 - whale
+Cosine Similarity = 0.111106, Cosine Distance = 0.888894
+Line number = 115 - bowhead, Line number = 116 - whale
+Cosine Similarity = 0.0665596, Cosine Distance = 0.93344
+PS F:\Chat-Bot-Skip-gram\usage>
