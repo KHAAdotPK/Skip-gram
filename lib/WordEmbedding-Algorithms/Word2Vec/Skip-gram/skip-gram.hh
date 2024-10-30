@@ -687,7 +687,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF 
 
             if (_isnanf(h_ptr[i]))
             {        
-                throw ala_exception(cc_tokenizer::String<char>("forward() Error: Hidden layer at ") + cc_tokenizer::String<char>("(W1 row) center word index ") +  cc_tokenizer::String<char>(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + cc_tokenizer::String<char>(" and (column index) i -> ") + cc_tokenizer::String<char>(i) + cc_tokenizer::String<char>(" -> [ ") + cc_tokenizer::String<char>("_isnanf() was true") + cc_tokenizer::String<char>("\" ]"));
+                throw ala_exception(cc_tokenizer::String<char>("Hidden layer at ") + cc_tokenizer::String<char>("(W1 row) center word index ") +  cc_tokenizer::String<char>(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + cc_tokenizer::String<char>(" and (column index) i -> ") + cc_tokenizer::String<char>(i) + cc_tokenizer::String<char>(" -> [ ") + cc_tokenizer::String<char>("_isnanf() was true") + cc_tokenizer::String<char>("\" ]"));
             }             
         }
 
@@ -972,17 +972,19 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
     @W1, embedding matrix. Each row in W1 is a unique word's embedding vector, representing its semantic relationship with other words
     @W2, output layer. Weights for predicting context words
     @el, epoch loss
+    @el_previous,
     @vocab, instance of class corpus
     @pairs, inctance of class skip gram pairs. The target/center word and its context words
     @lr, learning rate. The learning rate controls the step size at each iteration of the optimization process
     @rs, regulirazation strength. To prevent the model over-learning from the data
     @t, data type. Used as argument to templated types and functions
+    @stf, Stop Training Flag, when set to true all training loops are stoped
     @verbose, when true puts more text on screen to help debug code    
  */
-#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, vocab, pairs, lr, rs, t, verbose)\
+#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, rs, t, stf, verbose)\
 {\
     /* Epoch loop */\
-    for (cc_tokenizer::string_character_traits<char>::size_type i = 1; i <= epoch; i++)\
+    for (cc_tokenizer::string_character_traits<char>::size_type i = 1; i <= epoch && !stf; i++)\
     {\
         /* Initializes the epoch loss to 0 before accumulating errors from word pairs */\
         el = 0;\
@@ -994,7 +996,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
         /* Shuffle Word Pairs: Shuffles the training data (word pairs) before each epoch to avoid biases in weight updates */\
         Numcy::Random::shuffle<PAIRS>(pairs, pairs.get_number_of_word_pairs());\
         /* Iterates through each word pair in the training data  */\
-        while (pairs.go_to_next_word_pair() != cc_tokenizer::string_character_traits<char>::eof())\
+        while (pairs.go_to_next_word_pair() != cc_tokenizer::string_character_traits<char>::eof() && !stf)\
         {\
             /* Get Current Word Pair: We've a pair, a pair is LEFT_CONTEXT_WORD/S CENTER_WORD and RIGHT_CONTEXT_WORD/S */\
             WORDPAIRS_PTR pair = pairs.get_current_word_pair();\
@@ -1039,6 +1041,15 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
             el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
         }\
         std::cout<< "epoch_loss = (" << el << "), " << el/pairs.get_number_of_word_pairs() << std::endl;\
+        if (el_previous == 0 || el < el_previous)\
+        {\
+            el_previous = el;\
+        }\
+        else if (el_previous != el)\
+        {\
+            std::cout<< "Epoch loss is increasing... from " << el_previous/pairs.get_number_of_word_pairs() << " to " << el/pairs.get_number_of_word_pairs() << std::endl;\
+            stf = true;\
+        }\
     }\
 }\
 

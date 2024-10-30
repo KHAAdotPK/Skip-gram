@@ -191,8 +191,10 @@ int main(int argc, char* argv[])
         std::cout<< e.what() << std::endl;
     }
 
+    bool stop_training_flag = false;
     double epoch_loss = 0.0;
-
+    double epoch_loss_previous = 0.0;
+    
     /*
                ---- 
             ----------  
@@ -235,11 +237,10 @@ int main(int argc, char* argv[])
                  --------------          
      */ 
 
-    
     /* Start training. */
-    for (long i = 0; i < default_loop; i++)
+    for (long i = 0; i < default_loop && !stop_training_flag; i++)
     {
-        SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, vocab, pairs, default_lr, default_rs, double, arg_verbose.i ? true : false);
+        SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_rs, double, stop_training_flag, arg_verbose.i ? true : false);
     }
 
     /* 
