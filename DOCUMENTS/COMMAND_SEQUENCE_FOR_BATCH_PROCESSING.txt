@@ -1,0 +1,71 @@
+This sequence shows how batch processing and checkpointing are working in model training...
+
+1. First Command:
+	- **Purpose**: Initiates training on the specified corpus for 5 epochs and saves the trained weights to input_weights.txt and output_weights.txt.
+	- **Result**: The model starts fresh, with the loss decreasing from (7597.38) to (7580.02).
+
+```BASH
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 5 rs 0.0001 loop 0 verbose --output input_weights.txt output_weights.txt
+Corpus: ./INPUT.txt
+Dimensions of W1 = 256 X 20
+Dimensions of W2 = 20 X 256
+Epoch# 1 of 5 epochs.
+epoch_loss = (7597.38), 13.8892
+Epoch# 2 of 5 epochs.
+epoch_loss = (7592.52), 13.8803
+Epoch# 3 of 5 epochs.
+epoch_loss = (7589.28), 13.8744
+Epoch# 4 of 5 epochs.
+epoch_loss = (7584.44), 13.8655
+Epoch# 5 of 5 epochs.
+epoch_loss = (7580.02), 13.8574
+Trained input weights written to file: input_weights.txt
+Trained output weights written to file: output_weights.txt
+```
+
+2. Second Command:
+	- **Purpose**: Loads weights from input_weights.txt and output_weights.txt, continuing training for another 5 epochs.
+	- **Result**: The model resumes training from the previously saved weights, with the loss significantly lower this time, decreasing from (3752.98) to (3751.18).
+
+```BASH
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 5 rs 0.0001 loop 0 verbose --input input_weights.txt output_weights.txt
+Corpus: ./INPUT.txt
+Dimensions of W1 = 256 X 20
+Dimensions of W2 = 20 X 256
+Epoch# 1 of 5 epochs.
+epoch_loss = (3752.98), 6.86102
+Epoch# 2 of 5 epochs.
+epoch_loss = (3752.42), 6.86001
+Epoch# 3 of 5 epochs.
+epoch_loss = (3752.13), 6.85948
+Epoch# 4 of 5 epochs.
+epoch_loss = (3751.61), 6.85852
+Epoch# 5 of 5 epochs.
+epoch_loss = (3751.18), 6.85774
+Trained input weights written to file: W1trained.txt
+Trained output weights written to file: W2trained.txt
+```
+
+3. Third Command:
+	- **Purpose**: Loads weights from W1trained.txt and W2trained.txt, runs another 5 epochs, and saves the updated weights back to input_weights.txt and output_weights.txt.
+	- **Result**: The loss continues to decrease further, indicating incremental improvement, from (3748.07) to (3746.2).
+
+```BASH
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 5 rs 0.0001 loop 0 verbose --input W1trained.txt W2trained.txt --output input_weights.txt output_weights.txt
+Corpus: ./INPUT.txt
+Dimensions of W1 = 256 X 20
+Dimensions of W2 = 20 X 256
+Epoch# 1 of 5 epochs.
+epoch_loss = (3748.07), 6.85204
+Epoch# 2 of 5 epochs.
+epoch_loss = (3747.5), 6.85101
+Epoch# 3 of 5 epochs.
+epoch_loss = (3747.17), 6.8504
+Epoch# 4 of 5 epochs.
+epoch_loss = (3746.45), 6.84908
+Epoch# 5 of 5 epochs.
+epoch_loss = (3746.2), 6.84863
+Trained input weights written to file: input_weights.txt
+Trained output weights written to file: output_weights.txt
+PS F:\Skip-gram\usage>
+```
