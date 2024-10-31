@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[])
 { 
-    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop;
+    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
 
@@ -33,6 +33,8 @@ int main(int argc, char* argv[])
     FIND_ARG(argv, argc, argsv_parser, "lr", arg_lr);
     FIND_ARG(argv, argc, argsv_parser, "rs", arg_rs);
     FIND_ARG(argv, argc, argsv_parser, "loop", arg_loop);
+    FIND_ARG(argv, argc, argsv_parser, "--input", arg_input);
+    FIND_ARG(argv, argc, argsv_parser, "--output", arg_output);
 
     if (arg_corpus.i)
     {
@@ -143,7 +145,28 @@ int main(int argc, char* argv[])
             default_loop = default_loop + 1;
         }
     }
-    
+
+    cc_tokenizer::String<char> W1OutPutFile(TRAINED_INPUT_WEIGHTS_FILE_NAME);
+    cc_tokenizer::String<char> W2OutPutFile(TRAINED_OUTPUT_WEIGHTS_FILE_NAME);
+    if (arg_output.i)
+    {
+        FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_output); 
+
+        if (arg_output.argc > 1)
+        {              
+            W1OutPutFile = cc_tokenizer::String<char>(argv[arg_output.i + 1]);
+            W2OutPutFile = cc_tokenizer::String<char>(argv[arg_output.i + 2]);
+        }
+        else
+        {
+            ARG arg_output_help;
+            HELP(argsv_parser, arg_output_help, "output");                
+            HELP_DUMP(argsv_parser, arg_output_help);
+
+            return 0;
+        }
+    }
+        
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> data_parser(data);
     class Corpus vocab(data_parser);
     PAIRS pairs(vocab/*, arg_verbose.i ? true : false*/);
@@ -181,14 +204,55 @@ int main(int argc, char* argv[])
     Collective<double> W1;
     Collective<double> W2;
 
-    try 
+    cc_tokenizer::String<char> W1InputFile;
+    cc_tokenizer::String<char> W2InputFile;
+
+    if (arg_input.i)
     {
-        W1 = Numcy::Random::randn(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
-        W2 = Numcy::Random::randn(DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL});
+        FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_input); 
+
+        if (arg_input.argc > 1)
+        {              
+            //W1InputFile = cc_tokenizer::String<char>(argv[arg_input.i + 1]);
+            //W2InputFile = cc_tokenizer::String<char>(argv[arg_input.i + 2]);
+
+            /*cc_tokenizer::String<char>*/ W1InputFile = cc_tokenizer::cooked_read<char>(cc_tokenizer::String<char>(argv[arg_input.i + 1]));
+            /*cc_tokenizer::String<char>*/ W2InputFile = cc_tokenizer::cooked_read<char>(cc_tokenizer::String<char>(argv[arg_input.i + 2]));
+
+            cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> w1trainedParser(W1InputFile);
+            cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> w2trainedParser(W2InputFile);
+
+            READ_W1(w1trainedParser, W1);
+            READ_W2(w2trainedParser, W2);
+
+            std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
+
+            //return 0;
+        }
+        else
+        {
+            ARG arg_input_help;
+            HELP(argsv_parser, arg_input_help, "--input");                
+            HELP_DUMP(argsv_parser, arg_input_help);
+
+            return 0;
+        }
     }
-    catch (ala_exception& e)
+    else 
     {
-        std::cout<< e.what() << std::endl;
+        try 
+        {
+            W1 = Numcy::Random::randn(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
+            W2 = Numcy::Random::randn(DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL});
+
+            std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
+        }
+        catch (ala_exception& e)
+        {
+            std::cout<< e.what() << std::endl;
+        }
     }
 
     bool stop_training_flag = false;
@@ -249,7 +313,7 @@ int main(int argc, char* argv[])
         --------------------------------------
      */
     
-    std::cout<< "Trained input weights written to file: " << TRAINED_INPUT_WEIGHTS_FILE_NAME << std::endl;
+    std::cout<< "Trained input weights written to file: " << /*TRAINED_INPUT_WEIGHTS_FILE_NAME*/ W1OutPutFile.c_str() << std::endl;
 
     /*
     for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < vocab.numberOfUniqueTokens(); i++)
@@ -282,9 +346,9 @@ int main(int argc, char* argv[])
     } 
      */
 
-    WRITE_W1(W1, cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME), vocab);
+    WRITE_W1(W1, /*cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME)*/ W1OutPutFile, vocab);
 
-    std::cout<< "Trained output weights written to file: " << TRAINED_OUTPUT_WEIGHTS_FILE_NAME << std::endl;
+    std::cout<< "Trained output weights written to file: " << /*TRAINED_OUTPUT_WEIGHTS_FILE_NAME*/ W2OutPutFile.c_str() << std::endl;
 
     /*
     for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < vocab.numberOfUniqueTokens(); i++)
@@ -317,7 +381,7 @@ int main(int argc, char* argv[])
     }
      */
 
-    WRITE_W2(W2, cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME), vocab);
+    WRITE_W2(W2, /*cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME)*/ W2OutPutFile, vocab);
                
     return 0;
 }
