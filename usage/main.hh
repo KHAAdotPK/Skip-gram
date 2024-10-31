@@ -25,8 +25,12 @@
 #ifdef SKIP_GRAM_EMBEDDNG_VECTOR_SIZE
 #undef SKIP_GRAM_EMBEDDNG_VECTOR_SIZE
 #endif
+#define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 20
 
-#define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 50
+#ifndef SKIP_GRAM_WINDOW_SIZE
+#undef SKIP_GRAM_WINDOW_SIZE
+#endif
+#define SKIP_GRAM_WINDOW_SIZE 2
 
 #include "../lib/argsv-cpp/lib/parser/parser.hh"
 #include "../lib/sundry/cooked_read_new.hh"
