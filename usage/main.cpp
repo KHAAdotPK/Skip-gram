@@ -223,8 +223,9 @@ int main(int argc, char* argv[])
             cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> w2trainedParser(W2InputFile);
 
             READ_W1(w1trainedParser, W1);
-            READ_W2(w2trainedParser, W2);
-
+            //READ_W2(w2trainedParser, W2);
+            READ_W2_ChatGPT_With_W1(w2trainedParser, W1, W2);
+            
             std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
             std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
 
