@@ -9,8 +9,8 @@
 #define WORD_EMBEDDING_ALGORITHMS_SKIP_GRAM_USAGE_MAIN_HH
 
 #define SKIP_GRAM_DEFAULT_CORPUS_FILE ".\\data\\corpus.txt"
-#define TRAINED_INPUT_WEIGHTS_FILE_NAME     "W1trained.txt"
-#define TRAINED_OUTPUT_WEIGHTS_FILE_NAME    "W2trained.txt"
+#define TRAINED_INPUT_WEIGHTS_FILE_NAME     "W1trained.dat"
+#define TRAINED_OUTPUT_WEIGHTS_FILE_NAME    "W2trained.dat"
 
 #ifdef GRAMMAR_END_OF_TOKEN_MARKER
 #undef GRAMMAR_END_OF_TOKEN_MARKER
@@ -30,7 +30,7 @@
 #ifndef SKIP_GRAM_WINDOW_SIZE
 #undef SKIP_GRAM_WINDOW_SIZE
 #endif
-#define SKIP_GRAM_WINDOW_SIZE 5
+#define SKIP_GRAM_WINDOW_SIZE 2
 
 #include "../lib/argsv-cpp/lib/parser/parser.hh"
 #include "../lib/sundry/cooked_read_new.hh"

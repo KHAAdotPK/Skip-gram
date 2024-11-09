@@ -201,33 +201,42 @@ int main(int argc, char* argv[])
         * By predicting surrounding context words based on the central word's embedding, Skip-gram learns to capture semantic relationships between words with similar contexts.
      */
 
-    Collective<double> W1;
-    Collective<double> W2;
+    Collective<double> W1 /*= Collective<double>{NULL, DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL}}*/;
+    Collective<double> W2 /*= Collective<double>{NULL, DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}}*/;
 
-    cc_tokenizer::String<char> W1InputFile;
-    cc_tokenizer::String<char> W2InputFile;
+    /*cc_tokenizer::String<char> W1InputFile;
+    cc_tokenizer::String<char> W2InputFile;*/
 
     if (arg_input.i)
     {
         FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_input); 
 
         if (arg_input.argc > 1)
-        {              
+        {               
+            W1 = Collective<double>{NULL, DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL}};
+            W2 = Collective<double>{NULL, DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}};
+
+            std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
+
+            READ_W_BIN(W1, cc_tokenizer::String<char>(argv[arg_input.i + 1]), double);
+            READ_W_BIN(W2, cc_tokenizer::String<char>(argv[arg_input.i + 2]), double);
+
             //W1InputFile = cc_tokenizer::String<char>(argv[arg_input.i + 1]);
             //W2InputFile = cc_tokenizer::String<char>(argv[arg_input.i + 2]);
 
-            /*cc_tokenizer::String<char>*/ W1InputFile = cc_tokenizer::cooked_read<char>(cc_tokenizer::String<char>(argv[arg_input.i + 1]));
-            /*cc_tokenizer::String<char>*/ W2InputFile = cc_tokenizer::cooked_read<char>(cc_tokenizer::String<char>(argv[arg_input.i + 2]));
+            /*cc_tokenizer::String<char>*/ //W1InputFile = cc_tokenizer::cooked_read<char>(cc_tokenizer::String<char>(argv[arg_input.i + 1]));
+            /*cc_tokenizer::String<char>*/ //W2InputFile = cc_tokenizer::cooked_read<char>(cc_tokenizer::String<char>(argv[arg_input.i + 2]));
 
-            cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> w1trainedParser(W1InputFile);
-            cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> w2trainedParser(W2InputFile);
+            //cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> w1trainedParser(W1InputFile);
+            //cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> w2trainedParser(W2InputFile);
 
-            READ_W1(w1trainedParser, W1);
+            /*READ_W1(w1trainedParser, W1);
             //READ_W2(w2trainedParser, W2);
-            READ_W2_ChatGPT_With_W1(w2trainedParser, W1, W2);
+            READ_W2_ChatGPT_With_W1(w2trainedParser, W1, W2);*/
             
-            std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
-            std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
+            //std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
+            //std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
 
             //return 0;
         }
@@ -249,6 +258,34 @@ int main(int argc, char* argv[])
 
             std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
             std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
+
+            /*
+            //cc_tokenizer::cooked_write<double>(cc_tokenizer::String<char>("first.dat"), &W1);
+            WRITE_W_BIN(W1, cc_tokenizer::String<char>("first.dat"), double);
+
+            //Collective<double> W3 = Collective<double>{cc_tokenizer::cooked_read<double>(cc_tokenizer::String<char>("first.dat"), W1.getShape().getN()), W1.getShape().copy()};
+
+            Collective<double> W3 = Collective<double>{NULL, W1.getShape().copy()};
+
+            READ_W_BIN(W3, cc_tokenizer::String<char>("first.dat"), double);
+
+            if (W1.getShape() == W3.getShape())
+            {
+                std::cout<< "Shapes are same.... with getN() = " << W1.getShape().getN() << std::endl;
+
+                for (size_t i = 0; i < W1.getShape().getN(); i++)
+                {
+                    if (W1[i] == W3[i])
+                    {
+                        std::cout<< "-> " << i << "  " << "same" << ", " << W3.getShape().getN() << std::endl;
+                    }
+                }
+            }
+            else
+            {
+                std::cout<< "Shapes are not same..." << std::endl;
+            }
+             */
         }
         catch (ala_exception& e)
         {
@@ -347,7 +384,10 @@ int main(int argc, char* argv[])
     } 
      */
 
-    WRITE_W1(W1, /*cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME)*/ W1OutPutFile, vocab);
+    //WRITE_W1(W1, /*cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME)*/ W1OutPutFile, vocab);
+                          
+    WRITE_W_BIN(W1, W1OutPutFile.c_str(), double);
+     
 
     std::cout<< "Trained output weights written to file: " << /*TRAINED_OUTPUT_WEIGHTS_FILE_NAME*/ W2OutPutFile.c_str() << std::endl;
 
@@ -382,7 +422,9 @@ int main(int argc, char* argv[])
     }
      */
 
-    WRITE_W2(W2, /*cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME)*/ W2OutPutFile, vocab);
+    //WRITE_W2(W2, /*cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME)*/ W2OutPutFile, vocab);
+    
+    WRITE_W_BIN(W2, W2OutPutFile.c_str(), double);
                
     return 0;
 }
