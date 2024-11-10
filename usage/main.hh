@@ -5,6 +5,12 @@
 
 #include <iostream>
 
+#include "../lib/argsv-cpp/lib/parser/parser.hh"
+#include "../lib/sundry/cooked_read_new.hh"
+#include "../lib/sundry/cooked_write_new.hh"
+#include "../lib/read_write_weights/header.hh"
+//#include "../lib/WordEmbedding-Algorithms/Word2Vec/skip-gram/header.hh"
+
 #ifndef WORD_EMBEDDING_ALGORITHMS_SKIP_GRAM_USAGE_MAIN_HH
 #define WORD_EMBEDDING_ALGORITHMS_SKIP_GRAM_USAGE_MAIN_HH
 
@@ -27,15 +33,15 @@
 #endif
 #define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 50
 
-#ifndef SKIP_GRAM_WINDOW_SIZE
+#ifdef SKIP_GRAM_REGULARIZATION_STRENGTH
+#undef SKIP_GRAM_REGULARIZATION_STRENGTH
+#endif
+#define SKIP_GRAM_REGULARIZATION_STRENGTH 0.00
+
+#ifdef SKIP_GRAM_WINDOW_SIZE
 #undef SKIP_GRAM_WINDOW_SIZE
 #endif
 #define SKIP_GRAM_WINDOW_SIZE 2
-
-#include "../lib/argsv-cpp/lib/parser/parser.hh"
-#include "../lib/sundry/cooked_read_new.hh"
-#include "../lib/sundry/cooked_write_new.hh"
-#include "../lib/read_write_weights/header.hh"
 
 #include "../lib/WordEmbedding-Algorithms/Word2Vec/skip-gram/header.hh"
 

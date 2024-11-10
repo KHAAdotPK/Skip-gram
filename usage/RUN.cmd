@@ -1,1 +1,1 @@
-.\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 30 rs 0.0001 loop 2 verbose
+.\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 20 rs 0.0001 loop 0 verbose --output w1p.dat w2p.dat

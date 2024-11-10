@@ -13,7 +13,10 @@
    L1 and L2 regularization: add absolute values or squares of weights to the loss function
    Dropout: Randomly set some fraction of outputs in the layer to zero during training (prevents single neuron overlearning)
  */
+#ifndef SKIP_GRAM_REGULARIZATION_STRENGTH
 #define SKIP_GRAM_REGULARIZATION_STRENGTH 0.1
+#endif
+
 /*
     EPOCH?    
     In the context of training a machine learning model, an epoch is defined as a complete pass over the entire training dataset during training.
