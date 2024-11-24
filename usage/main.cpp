@@ -253,12 +253,42 @@ int main(int argc, char* argv[])
     {
         try 
         {
+            /*
+                The weights 𝑊1 and 𝑊2​ are initialized using random values drawn from a normal distribution, which is typical for training embeddings in skip-gram models. This approach prevents symmetry and allows gradients to flow during backpropagation.
+             */
             W1 = Numcy::Random::randn(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
             W2 = Numcy::Random::randn(DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL});
 
             std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
             std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
 
+            /*for (int i = 0; i <1; i++)
+            {
+                for (int j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                {
+                    std::cout<< W1[i*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + j] << ", ";
+                }
+
+                std::cout<< std::endl;
+            }
+
+            std::cout<< "****************************************************" << std::endl;
+
+            Collective<double> xxx = Numcy::ones<double>(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
+
+            W1 -= xxx * 2.0;
+
+            for (int i = 0; i <1; i++)
+            {
+                for (int j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                {
+                    std::cout<< W1[i*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + j] << ", ";
+                }
+
+                std::cout<< std::endl;
+            }
+            std::cout<< std::endl;*/
+            
             /*
             //cc_tokenizer::cooked_write<double>(cc_tokenizer::String<char>("first.dat"), &W1);
             WRITE_W_BIN(W1, cc_tokenizer::String<char>("first.dat"), double);
@@ -425,6 +455,6 @@ int main(int argc, char* argv[])
     //WRITE_W2(W2, /*cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME)*/ W2OutPutFile, vocab);
     
     WRITE_W_BIN(W2, W2OutPutFile.c_str(), double);
-               
+                   
     return 0;
 }

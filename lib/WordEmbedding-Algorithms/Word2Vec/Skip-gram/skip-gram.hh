@@ -670,7 +670,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF 
     Collective<T> h;
     Collective<T> u;
     Collective<T> y_pred;
-        
+            
     try 
     {
         /*
@@ -708,8 +708,11 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF 
          
             The dot product gives us the logits or unnormalized probabilities (u), 
             which can then be transformed into probabilities using a softmax function
-         */            
-        u = Numcy::dot(h, W2);        
+         */
+        /*std::cout<< "--> Dimensions of h = " << h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h.getShape().getNumberOfColumns() << std::endl;
+        std::cout<< "--> Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;*/
+        u = Numcy::dot(h, W2);  
+        /*std::cout<< "--> Dimensions of u = " << u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << u.getShape().getNumberOfColumns() << std::endl;*/
         /*
             The resulting vector (u) is passed through a softmax function to obtain the predicted probabilities (y_pred). 
             The softmax function converts the raw scores into probabilities.
@@ -721,8 +724,8 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF 
          */
         y_pred = softmax(u);
                         
-        cc_tokenizer::allocator<T>().deallocate(h_ptr);
-        h_ptr = NULL;
+        /*cc_tokenizer::allocator<T>().deallocate(h_ptr);
+        h_ptr = NULL;*/
     }
     catch (std::length_error& e)
     {        
@@ -778,7 +781,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
     try 
     {
         oneHot = Numcy::zeros(DIMENSIONS{vocab.numberOfUniqueTokens(), 1, NULL, NULL});
-
+        
         /*
             The following code block, iterates through the context word indices (left and right) from the pair object.
             For each valid context word index (i), it sets the corresponding element in the oneHot vector to 1.
@@ -839,9 +842,9 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
             3. If the large gradients cause instability, consider gradient clipping. So, a gradient of −1 or even 1 in this context is manageable and not unusual.
                When we mention "large gradients" in the context of gradient clipping, we’re generally referring to situations where values might spike significantly higher,
                leading to instability—often in ranges much higher than 1, sometimes reaching orders of magnitude greater depending on the scale of your loss function and the learning rate.
-         */        
+         */          
         grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
-
+        
         /*
         for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
         {                        
@@ -863,8 +866,20 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
         }
         std::cout<< std::endl;
          */
+        /*
+            So what you are saying is that take he transpose of  hidden_layer_vector(h) and the multiply it with 
+            grad_u(gradient of intermediate_activation) and the resulting matrix will grad_W2 
+         */
+        Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);
+        grad_W2 =  Numcy::dot(h_transpose, grad_u);
 
-        grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);
+        //std::cout<< "Dimensions of h_transpose = " << h_transpose.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h_transpose.getShape().getNumberOfColumns() << std::endl;
+        //std::cout<< "Dimensions of h = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << std::endl;
+
+        /*std::cout<< "Dimensions of fp.intermediate_activation a.k.a u = " << fp.intermediate_activation.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.intermediate_activation.getShape().getNumberOfColumns() << std::endl;
+        std::cout<< "Dimensions of grad_u = " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_u.getShape().getNumberOfColumns() << std::endl;*/
+        //grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);
+        /*std::cout<< "Dimensions of grad_W2 = " << grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2.getShape().getNumberOfColumns() << std::endl;*/
         
         W2_T = Numcy::transpose(W2);
 
@@ -1017,38 +1032,53 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
                    embedding matrix (W1), output weights (W2), vocabulary (vocab), and data type (t).\
                    The result is stored in the bp variable. */\
                 bp = backward<t>(W1, W2, vocab, fp, pair);\
-                /* Reshape W2 so tht it has the same shape as the other vector.\
-                   Function reshape works when first vector is smaller in shape than the other vector */\
-                W2_reshaped = Numcy::reshape(W2, bp.grad_weights_hidden_to_output);\
-                /* Update Weights */\
-                W1 -= bp.grad_weights_input_to_hidden * lr;\
-                W2_reshaped -= bp.grad_weights_hidden_to_output * lr;\
-                /* Update W2 */\
-                for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); i++)\
+                if (!((bp.grad_weights_hidden_to_output.getShape().getNumberOfColumns() == W2.getShape().getNumberOfColumns()) && (bp.grad_weights_hidden_to_output.getShape().getDimensionsOfArray().getNumberOfInnerArrays() == W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays())))\
                 {\
-                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getNumberOfColumns(); j++)\
+                    std::cout<< "SKIP_GRAM_TRAINING_LOOP Error: Shapes mismathc."  << std::endl;\
+                    stf = true;\
+                }\
+                else\
+                {\
+                    /* Reshape W2 so tht it has the same shape as the other vector.\
+                       Function reshape works when first vector is smaller in shape than the other vector */\
+                    W2_reshaped = Numcy::reshape(W2, bp.grad_weights_hidden_to_output);\
+                    /* Update Weights */\
+                    W1 -= bp.grad_weights_input_to_hidden * lr;\
+                    /*W2_reshaped*/ W2 -= bp.grad_weights_hidden_to_output * lr;\
+                    /* Update W2 */\
+                    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); i++)\
                     {\
-                        W2[i*W2.getShape().getNumberOfColumns() + j] = W2_reshaped[i*W2_reshaped.getShape().getNumberOfColumns() + j];\
+                        for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getNumberOfColumns(); j++)\
+                        {\
+                            /*W2[i*W2.getShape().getNumberOfColumns() + j] = W2_reshaped[i*W2_reshaped.getShape().getNumberOfColumns() + j];*/\
+                        }\
                     }\
                 }\
             }\
             catch (ala_exception& e)\
             {\
                 std::cout<< "SKIP_GRAM_TRAINIG_LOOP -> " << e.what() << std::endl;\
+                stf = true;\
             }\
             /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
                In NLL, lower values indicate better performance. */\
-            el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
+            if (!stf)\
+            {\
+                el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
+            }\
         }\
-        std::cout<< "epoch_loss = (" << el << "), " << el/pairs.get_number_of_word_pairs() << std::endl;\
-        if (el_previous == 0 || el < el_previous)\
+        if (!stf)\
         {\
-            el_previous = el;\
-        }\
-        else if (el_previous != el)\
-        {\
-            std::cout<< "Epoch loss is increasing... from " << el_previous/pairs.get_number_of_word_pairs() << " to " << el/pairs.get_number_of_word_pairs() << std::endl;\
-            stf = true;\
+            std::cout<< "epoch_loss = (" << el << "), " << el/pairs.get_number_of_word_pairs() << std::endl;\
+            if (el_previous == 0 || el < el_previous)\
+            {\
+                el_previous = el;\
+            }\
+            else if (el_previous != el)\
+            {\
+                std::cout<< "Epoch loss is increasing... from " << el_previous/pairs.get_number_of_word_pairs() << " to " << el/pairs.get_number_of_word_pairs() << std::endl;\
+                stf = true;\
+            }\
         }\
     }\
 }\
