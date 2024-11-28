@@ -104,7 +104,7 @@ The representation provided by the model showcases the use of a context window t
 **_Structure and Window Size_**
 
 - Each target word (enclosed in square brackets, e.g., [ feeling ]) is paired with its surrounding context words.
-- The context window size appears to be 4 (two tokens on each side of the target word). For instance, in the line:
+- The context window size appears to be `8` (four tokens on each side of the target word). For instance, in the line:
 NONE NONE NONE NONE [ feeling ] very tired lately persistent, four NONE tokens are added to the beginning to handle edge cases where fewer context tokens are available.
 
 **_Observations on the Window Size_**.
