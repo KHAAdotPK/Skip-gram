@@ -666,7 +666,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF 
     {
         throw ala_exception("forward() Error: Index of center word is out of bounds of W1.");
     }
-
+    
     Collective<T> h;
     Collective<T> u;
     Collective<T> y_pred;
@@ -998,6 +998,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
  */
 #define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, rs, t, stf, verbose)\
 {\
+    cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
     /* Epoch loop */\
     for (cc_tokenizer::string_character_traits<char>::size_type i = 1; i <= epoch && !stf; i++)\
     {\
@@ -1017,10 +1018,6 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
             WORDPAIRS_PTR pair = pairs.get_current_word_pair();\
             forward_propogation<t> fp;\
             backward_propogation<t> bp;\
-            /* Reshape and Update W2: Creates a temporary variable W2_reshaped of type Collective<t> to hold the reshaped\
-               output weights held by W2. We need reshaped W2 vector for the later substraction operation between W2 vector\
-               and the other one */\
-            Collective<t> W2_reshaped;\
             try\
             {\
                 /* Forward Propagation: The forward function performs forward propagation and calculate the hidden layer\
@@ -1032,52 +1029,45 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
                    embedding matrix (W1), output weights (W2), vocabulary (vocab), and data type (t).\
                    The result is stored in the bp variable. */\
                 bp = backward<t>(W1, W2, vocab, fp, pair);\
-                if (!((bp.grad_weights_hidden_to_output.getShape().getNumberOfColumns() == W2.getShape().getNumberOfColumns()) && (bp.grad_weights_hidden_to_output.getShape().getDimensionsOfArray().getNumberOfInnerArrays() == W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays())))\
+                /* Update Weights */\
+                if (rs == 0)\
                 {\
-                    std::cout<< "SKIP_GRAM_TRAINING_LOOP Error: Shapes mismathc."  << std::endl;\
-                    stf = true;\
+                    W1 -= bp.grad_weights_input_to_hidden * lr;\
+                    W2 -= bp.grad_weights_hidden_to_output * lr;\
                 }\
                 else\
                 {\
-                    /* Reshape W2 so tht it has the same shape as the other vector.\
-                       Function reshape works when first vector is smaller in shape than the other vector */\
-                    W2_reshaped = Numcy::reshape(W2, bp.grad_weights_hidden_to_output);\
-                    /* Update Weights */\
-                    W1 -= bp.grad_weights_input_to_hidden * lr;\
-                    /*W2_reshaped*/ W2 -= bp.grad_weights_hidden_to_output * lr;\
-                    /* Update W2 */\
-                    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); i++)\
-                    {\
-                        for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getNumberOfColumns(); j++)\
-                        {\
-                            /*W2[i*W2.getShape().getNumberOfColumns() + j] = W2_reshaped[i*W2_reshaped.getShape().getNumberOfColumns() + j];*/\
-                        }\
-                    }\
+                    W1 -= ((bp.grad_weights_input_to_hidden + (W1 * rs)) * lr);\
+                    W2 -= ((bp.grad_weights_hidden_to_output + (W2 * rs)) * lr);\
                 }\
+                /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
+                   In NLL, lower values indicate better performance. */\
+                el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
             }\
             catch (ala_exception& e)\
             {\
                 std::cout<< "SKIP_GRAM_TRAINIG_LOOP -> " << e.what() << std::endl;\
                 stf = true;\
             }\
-            /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
-               In NLL, lower values indicate better performance. */\
-            if (!stf)\
-            {\
-                el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
-            }\
         }\
         if (!stf)\
         {\
-            std::cout<< "epoch_loss = (" << el << "), " << el/pairs.get_number_of_word_pairs() << std::endl;\
             if (el_previous == 0 || el < el_previous)\
             {\
+                std::cout<< "epoch_loss = (" << el << "), Average epoch_loss = " << el/pairs.get_number_of_word_pairs() << std::endl;\
                 el_previous = el;\
             }\
-            else if (el_previous != el)\
+            else\
             {\
-                std::cout<< "Epoch loss is increasing... from " << el_previous/pairs.get_number_of_word_pairs() << " to " << el/pairs.get_number_of_word_pairs() << std::endl;\
-                stf = true;\
+                std::cout<< "Average epoch_loss is increasing... from " << el_previous/pairs.get_number_of_word_pairs() << " to " << el/pairs.get_number_of_word_pairs() << std::endl;\
+                if (patience < DEFAULT_TRAINING_LOOP_PATIENCE)\
+                {\
+                    patience = patience + 1;\
+                }\
+                else\
+                {\
+                    stf = true;\
+                }\
             }\
         }\
     }\

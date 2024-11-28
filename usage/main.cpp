@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
 
         if (arg_rs.argc)
         {
-            default_rs = atof(argv[arg_rs.j]);
+            default_rs = atof(argv[arg_rs.i + 1]);
         }
     }
 
@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
         FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_loop);
         if (arg_loop.argc)
         {
-            default_loop =  default_loop + atol(argv[arg_loop.j]);
+            default_loop =  default_loop + atol(argv[arg_loop.i + 1]);
         }
         else
         {   
@@ -169,7 +169,7 @@ int main(int argc, char* argv[])
         
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> data_parser(data);
     class Corpus vocab(data_parser);
-    PAIRS pairs(vocab/*, arg_verbose.i ? true : false*/);
+    PAIRS pairs(vocab, arg_verbose.i ? true : false);
 
     /*
         For the neural network itself, Skip-gram typically uses a simple architecture. 
@@ -372,7 +372,7 @@ int main(int argc, char* argv[])
     /* Start training. */
     for (long i = 0; i < default_loop && !stop_training_flag; i++)
     {
-        SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_rs, double, stop_training_flag, arg_verbose.i ? true : false);
+        //SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_rs, double, stop_training_flag, arg_verbose.i ? true : false);
     }
 
     /* 

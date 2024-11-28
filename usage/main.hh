@@ -3,6 +3,8 @@
     Q@khaa.pk
  */
 
+// .\skipy.exe corpus ./INPUT.txt lr 0.01 epoch 10 rs 0.0000009 loop 0 verbose --input w1-7.dat w2-7.dat --output w1-8.dat w2-8.dat
+
 #include <iostream>
 
 #ifndef WORD_EMBEDDING_ALGORITHMS_SKIP_GRAM_USAGE_MAIN_HH
@@ -25,17 +27,20 @@
 #ifdef SKIP_GRAM_EMBEDDNG_VECTOR_SIZE
 #undef SKIP_GRAM_EMBEDDNG_VECTOR_SIZE
 #endif
-#define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 64
+#define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 16
 
+// Start with small values (e.g., 0.001) and adjust based on performance.
 #ifdef SKIP_GRAM_REGULARIZATION_STRENGTH
 #undef SKIP_GRAM_REGULARIZATION_STRENGTH
 #endif
-#define SKIP_GRAM_REGULARIZATION_STRENGTH 0.00
+#define SKIP_GRAM_REGULARIZATION_STRENGTH 0.001
 
 #ifdef SKIP_GRAM_CONTEXT_WINDOW_SIZE
 #undef SKIP_GRAM_CONTEXT_WINDOW_SIZE
 #endif
 #define SKIP_GRAM_CONTEXT_WINDOW_SIZE 4
+
+#define DEFAULT_TRAINING_LOOP_PATIENCE 3
 
 #include "../lib/argsv-cpp/lib/parser/parser.hh"
 #include "../lib/sundry/cooked_read_new.hh"

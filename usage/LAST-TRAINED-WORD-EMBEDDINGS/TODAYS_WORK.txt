@@ -1,238 +1,582 @@
-1. Each run shows a consistent decrease in loss per epoch, which is a good indicator that the model is learning and optimizing. Loss values decrease more gradually as training progresses, which is typical as the model finds a more stable solution.
+THE Corpus.
+-------------
+feeling very tired lately
+persistent cough that won't go away
+stomach hurts after eating
+get headaches often
+noticed my weight has been fluctuating a lot
+trouble sleeping at night
+short of breath after walking for a few minutes
+joints are aching
+nauseous every morning
+experiencing dizziness
+throat feels scratchy and dry
+fever and chills
+feeling anxious for no reason
 
-### RUN - 1
+Context Window of 8 tokens
+-----------------------------
 
-```BASH
-PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 20 loop 0 verbose --output w1p.dat w2p.dat
-```
-```
-Corpus: ./INPUT.txt
-Dimensions of W1 = 224 X 50
-Dimensions of W2 = 50 X 224
-Epoch# 1 of 20 epochs.
-epoch_loss = (10637.5), 19.447
-Epoch# 2 of 20 epochs.
-epoch_loss = (10612.8), 19.4018
-Epoch# 3 of 20 epochs.
-epoch_loss = (10593.4), 19.3663
-Epoch# 4 of 20 epochs.
-epoch_loss = (10573.5), 19.33
-Epoch# 5 of 20 epochs.
-epoch_loss = (10553.5), 19.2935
-Epoch# 6 of 20 epochs.
-epoch_loss = (10537.6), 19.2643
-Epoch# 7 of 20 epochs.
-epoch_loss = (10522.3), 19.2364
-Epoch# 8 of 20 epochs.
-epoch_loss = (10507.8), 19.21
-Epoch# 9 of 20 epochs.
-epoch_loss = (10497.4), 19.1909
-Epoch# 10 of 20 epochs.
-epoch_loss = (10484.7), 19.1677
-Epoch# 11 of 20 epochs.
-epoch_loss = (10473.1), 19.1464
-Epoch# 12 of 20 epochs.
-epoch_loss = (10461), 19.1243
-Epoch# 13 of 20 epochs.
-epoch_loss = (10448.9), 19.1021
-Epoch# 14 of 20 epochs.
-epoch_loss = (10436.3), 19.0792
-Epoch# 15 of 20 epochs.
-epoch_loss = (10428.8), 19.0654
-Epoch# 16 of 20 epochs.
-epoch_loss = (10417), 19.0438
-Epoch# 17 of 20 epochs.
-epoch_loss = (10408.2), 19.0277
-Epoch# 18 of 20 epochs.
-epoch_loss = (10397.7), 19.0087
-Epoch# 19 of 20 epochs.
-epoch_loss = (10392.2), 18.9985
-Epoch# 20 of 20 epochs.
-epoch_loss = (10382.2), 18.9803
+NONE  NONE  NONE  NONE  [ feeling ] very  tired  lately  persistent
+NONE  NONE  NONE  feeling  [ very ] tired  lately  persistent  cough
+NONE  NONE  feeling  very  [ tired ] lately  persistent  cough  that
+NONE  feeling  very  tired  [ lately ] persistent  cough  that  won't
+feeling  very  tired  lately  [ persistent ] cough  that  won't  go
+very  tired  lately  persistent  [ cough ] that  won't  go  away
+tired  lately  persistent  cough  [ that ] won't  go  away  stomach
+lately  persistent  cough  that  [ won't ] go  away  stomach  hurts
+persistent  cough  that  won't  [ go ] away  stomach  hurts  after
+cough  that  won't  go  [ away ] stomach  hurts  after  eating
+that  won't  go  away  [ stomach ] hurts  after  eating  get
+won't  go  away  stomach  [ hurts ] after  eating  get  headaches
+go  away  stomach  hurts  [ after ] eating  get  headaches  often
+away  stomach  hurts  after  [ eating ] get  headaches  often  noticed
+stomach  hurts  after  eating  [ get ] headaches  often  noticed  my
+hurts  after  eating  get  [ headaches ] often  noticed  my  weight
+after  eating  get  headaches  [ often ] noticed  my  weight  has
+eating  get  headaches  often  [ noticed ] my  weight  has  been
+get  headaches  often  noticed  [ my ] weight  has  been  fluctuating
+headaches  often  noticed  my  [ weight ] has  been  fluctuating  a
+often  noticed  my  weight  [ has ] been  fluctuating  a  lot
+noticed  my  weight  has  [ been ] fluctuating  a  lot  trouble
+my  weight  has  been  [ fluctuating ] a  lot  trouble  sleeping
+weight  has  been  fluctuating  [ a ] lot  trouble  sleeping  at
+has  been  fluctuating  a  [ lot ] trouble  sleeping  at  night
+been  fluctuating  a  lot  [ trouble ] sleeping  at  night  short
+fluctuating  a  lot  trouble  [ sleeping ] at  night  short  of
+a  lot  trouble  sleeping  [ at ] night  short  of  breath
+lot  trouble  sleeping  at  [ night ] short  of  breath  after
+trouble  sleeping  at  night  [ short ] of  breath  after  walking
+sleeping  at  night  short  [ of ] breath  after  walking  for
+at  night  short  of  [ breath ] after  walking  for  a
+night  short  of  breath  [ after ] walking  for  a  few
+short  of  breath  after  [ walking ] for  a  few  minutes
+of  breath  after  walking  [ for ] a  few  minutes  joints
+breath  after  walking  for  [ a ] few  minutes  joints  are
+after  walking  for  a  [ few ] minutes  joints  are  aching
+walking  for  a  few  [ minutes ] joints  are  aching  nauseous
+for  a  few  minutes  [ joints ] are  aching  nauseous  every
+a  few  minutes  joints  [ are ] aching  nauseous  every  morning
+minutes  joints  are  aching  [ nauseous ] every  morning  experiencing  dizziness
+joints  are  aching  nauseous  [ every ] morning  experiencing  dizziness  throat
+are  aching  nauseous  every  [ morning ] experiencing  dizziness  throat  feels
+aching  nauseous  every  morning  [ experiencing ] dizziness  throat  feels  scratchy
+nauseous  every  morning  experiencing  [ dizziness ] throat  feels  scratchy  and
+every  morning  experiencing  dizziness  [ throat ] feels  scratchy  and  dry
+morning  experiencing  dizziness  throat  [ feels ] scratchy  and  dry  fever
+experiencing  dizziness  throat  feels  [ scratchy ] and  dry  fever  and
+dizziness  throat  feels  scratchy  [ and ] dry  fever  and  chills
+throat  feels  scratchy  and  [ dry ] fever  and  chills  feeling
+feels  scratchy  and  dry  [ fever ] and  chills  feeling  anxious
+scratchy  and  dry  fever  [ and ] chills  feeling  anxious  for
+and  dry  fever  and  [ chills ] feeling  anxious  for  no
+dry  fever  and  chills  [ feeling ] anxious  for  no  reason
+fever  and  chills  feeling  [ anxious ] for  no  reason
+and  chills  feeling  anxious  [ for ] no  reason
+chills  feeling  anxious  for  [ no ] reason
+feeling  anxious  for  no  [ reason ]
+
+.\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 10 rs 0.001 loop 0 verbose --output w1p.dat w2p.dat
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (574.778), Average epoch_loss = 9.742
+Epoch# 2 of 10 epochs.
+epoch_loss = (572.737), Average epoch_loss = 9.70741
+Epoch# 3 of 10 epochs.
+epoch_loss = (571.101), Average epoch_loss = 9.67967
+Epoch# 4 of 10 epochs.
+epoch_loss = (569.511), Average epoch_loss = 9.65272
+Epoch# 5 of 10 epochs.
+epoch_loss = (567.662), Average epoch_loss = 9.62139
+Epoch# 6 of 10 epochs.
+epoch_loss = (565.967), Average epoch_loss = 9.59266
+Epoch# 7 of 10 epochs.
+epoch_loss = (564.356), Average epoch_loss = 9.56536
+Epoch# 8 of 10 epochs.
+epoch_loss = (562.7), Average epoch_loss = 9.53728
+Epoch# 9 of 10 epochs.
+epoch_loss = (561.132), Average epoch_loss = 9.51072
+Epoch# 10 of 10 epochs.
+epoch_loss = (559.24), Average epoch_loss = 9.47864
 Trained input weights written to file: w1p.dat
 Trained output weights written to file: w2p.dat
-```
 
-```BASH
-F:\Chat-Bot-Skip-gram\usage>.\weights.exe sunshine whale whale kisses cheeks w2 w2p.dat
-```
-```
-50 X 224
-sunshine -> whale
-Cosine Similarity = -0.199765, Cosine Distance = 0.800235
-sunshine -> whale
-Cosine Similarity = -0.199765, Cosine Distance = 0.800235
-sunshine -> kisses
-Cosine Similarity = 0.215511, Cosine Distance = 0.784489
-sunshine -> cheeks
-Cosine Similarity = -0.0643211, Cosine Distance = 0.935679
-whale -> whale
-Cosine Similarity = 1, Cosine Distance = 0
-whale -> kisses
-Cosine Similarity = 0.063578, Cosine Distance = 0.936422
-whale -> cheeks
-Cosine Similarity = 0.0842292, Cosine Distance = 0.915771
-whale -> kisses
-Cosine Similarity = 0.063578, Cosine Distance = 0.936422
-whale -> cheeks
-Cosine Similarity = 0.0842292, Cosine Distance = 0.915771
-kisses -> cheeks
-Cosine Similarity = 0.0962505, Cosine Distance = 0.90375
-```
+.\weights.exe feeling cough throat tired w1 w1p.dat w2 w2p.dat
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.25121, Cosine Distance = 0.74879
+feeling -> throat
+Cosine Similarity = -0.557122, Cosine Distance = 0.442878
+feeling -> tired
+Cosine Similarity = 0.335205, Cosine Distance = 0.664795
+cough -> throat
+Cosine Similarity = -0.376468, Cosine Distance = 0.623532
+cough -> tired
+Cosine Similarity = 0.21912, Cosine Distance = 0.78088
+throat -> tired
+Cosine Similarity = -0.0624799, Cosine Distance = 0.93752
 
-### RUN - 2
-```BASH
-PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 20 loop 0 verbose --input w1p.dat w2p.dat --output w1.dat w2.dat 
-```
-```        
+.\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 10 rs 0.001 loop 0 verbose --input w1p.dat w2p.dat --output w1.dat w2.dat
 Corpus: ./INPUT.txt
-Dimensions of W1 = 224 X 50
-Dimensions of W2 = 50 X 224
-Epoch# 1 of 20 epochs.
-epoch_loss = (10376.4), 18.9696
-Epoch# 2 of 20 epochs.
-epoch_loss = (10370.1), 18.9582
-Epoch# 3 of 20 epochs.
-epoch_loss = (10360.1), 18.9399
-Epoch# 4 of 20 epochs.
-epoch_loss = (10356.9), 18.9339
-Epoch# 5 of 20 epochs.
-epoch_loss = (10349.4), 18.9204
-Epoch# 6 of 20 epochs.
-epoch_loss = (10342.7), 18.9081
-Epoch# 7 of 20 epochs.
-epoch_loss = (10338.1), 18.8996
-Epoch# 8 of 20 epochs.
-epoch_loss = (10334.1), 18.8924
-Epoch# 9 of 20 epochs.
-epoch_loss = (10328.3), 18.8817
-Epoch# 10 of 20 epochs.
-epoch_loss = (10324.2), 18.8742
-Epoch# 11 of 20 epochs.
-epoch_loss = (10314.3), 18.8562
-Epoch# 12 of 20 epochs.
-epoch_loss = (10311.7), 18.8513
-Epoch# 13 of 20 epochs.
-epoch_loss = (10306.2), 18.8413
-Epoch# 14 of 20 epochs.
-epoch_loss = (10299.4), 18.829
-Epoch# 15 of 20 epochs.
-epoch_loss = (10294.3), 18.8195
-Epoch# 16 of 20 epochs.
-epoch_loss = (10290.5), 18.8126
-Epoch# 17 of 20 epochs.
-epoch_loss = (10284.8), 18.8022
-Epoch# 18 of 20 epochs.
-epoch_loss = (10276.8), 18.7876
-Epoch# 19 of 20 epochs.
-epoch_loss = (10270.6), 18.7762
-Epoch# 20 of 20 epochs.
-epoch_loss = (10267.1), 18.7698
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (557.422), Average epoch_loss = 9.44783
+Epoch# 2 of 10 epochs.
+epoch_loss = (555.677), Average epoch_loss = 9.41826
+Epoch# 3 of 10 epochs.
+epoch_loss = (554.077), Average epoch_loss = 9.39113
+Epoch# 4 of 10 epochs.
+epoch_loss = (552.848), Average epoch_loss = 9.3703
+Epoch# 5 of 10 epochs.
+epoch_loss = (551.056), Average epoch_loss = 9.33993
+Epoch# 6 of 10 epochs.
+epoch_loss = (549.238), Average epoch_loss = 9.30911
+Epoch# 7 of 10 epochs.
+epoch_loss = (547.468), Average epoch_loss = 9.27912
+Epoch# 8 of 10 epochs.
+epoch_loss = (545.743), Average epoch_loss = 9.24987
+Epoch# 9 of 10 epochs.
+epoch_loss = (544.026), Average epoch_loss = 9.22078
+Epoch# 10 of 10 epochs.
+epoch_loss = (542.629), Average epoch_loss = 9.1971
 Trained input weights written to file: w1.dat
 Trained output weights written to file: w2.dat
-```
-```BASH
-F:\Chat-Bot-Skip-gram\usage>.\weights.exe sunshine whale whale kisses cheeks w2 w2p.dat
-```
-```
-50 X 224
-sunshine -> whale
-Cosine Similarity = -0.164949, Cosine Distance = 0.835051
-sunshine -> whale
-Cosine Similarity = -0.164949, Cosine Distance = 0.835051
-sunshine -> kisses
-Cosine Similarity = 0.209901, Cosine Distance = 0.790099
-sunshine -> cheeks
-Cosine Similarity = -0.0975646, Cosine Distance = 0.902435
-whale -> whale
-Cosine Similarity = 1, Cosine Distance = 0
-whale -> kisses
-Cosine Similarity = 0.0706216, Cosine Distance = 0.929378
-whale -> cheeks
-Cosine Similarity = 0.0786869, Cosine Distance = 0.921313
-whale -> kisses
-Cosine Similarity = 0.0706216, Cosine Distance = 0.929378
-whale -> cheeks
-Cosine Similarity = 0.0786869, Cosine Distance = 0.921313
-kisses -> cheeks
-Cosine Similarity = 0.0820446, Cosine Distance = 0.917955
-```
 
-### RUN - 3
-```BASH
-PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 20 loop 0 verbose --input w1p.dat w2p.dat --output w1.dat w2.dat
-```
-```
+.\weights.exe feeling cough throat tired w1 w1.dat w2 w2.dat 
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.2518, Cosine Distance = 0.7482
+feeling -> throat
+Cosine Similarity = -0.55438, Cosine Distance = 0.44562
+feeling -> tired
+Cosine Similarity = 0.336756, Cosine Distance = 0.663244
+cough -> throat
+Cosine Similarity = -0.374292, Cosine Distance = 0.625708
+cough -> tired
+Cosine Similarity = 0.221063, Cosine Distance = 0.778937
+throat -> tired
+Cosine Similarity = -0.057959, Cosine Distance = 0.942041
+
+.\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 10 rs 0.001 loop 0 verbose --input w1.dat w2.dat --output w1-1.dat w2-1.dat
 Corpus: ./INPUT.txt
-Dimensions of W1 = 224 X 50
-Dimensions of W2 = 50 X 224
-Epoch# 1 of 20 epochs.
-epoch_loss = (10261.7), 18.7599
-Epoch# 2 of 20 epochs.
-epoch_loss = (10256.4), 18.7503
-Epoch# 3 of 20 epochs.
-epoch_loss = (10251.1), 18.7406
-Epoch# 4 of 20 epochs.
-epoch_loss = (10244.1), 18.7278
-Epoch# 5 of 20 epochs.
-epoch_loss = (10239.2), 18.7188
-Epoch# 6 of 20 epochs.
-epoch_loss = (10232.1), 18.7058
-Epoch# 7 of 20 epochs.
-epoch_loss = (10228.5), 18.6993
-Epoch# 8 of 20 epochs.
-epoch_loss = (10220.6), 18.6848
-Epoch# 9 of 20 epochs.
-epoch_loss = (10214.9), 18.6745
-Epoch# 10 of 20 epochs.
-epoch_loss = (10210), 18.6655
-Epoch# 11 of 20 epochs.
-epoch_loss = (10206), 18.6581
-Epoch# 12 of 20 epochs.
-epoch_loss = (10199.2), 18.6456
-Epoch# 13 of 20 epochs.
-epoch_loss = (10193.3), 18.6349
-Epoch# 14 of 20 epochs.
-epoch_loss = (10183.5), 18.6171
-Epoch# 15 of 20 epochs.
-epoch_loss = (10179.6), 18.6098
-Epoch# 16 of 20 epochs.
-epoch_loss = (10170.9), 18.594
-Epoch# 17 of 20 epochs.
-epoch_loss = (10163), 18.5795
-Epoch# 18 of 20 epochs.
-epoch_loss = (10158.5), 18.5714
-Epoch# 19 of 20 epochs.
-epoch_loss = (10149.6), 18.5551
-Epoch# 20 of 20 epochs.
-epoch_loss = (10144.1), 18.5449
-Trained input weights written to file: w1.dat
-Trained output weights written to file: w2.dat
-```
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (540.924), Average epoch_loss = 9.16821
+Epoch# 2 of 10 epochs.
+epoch_loss = (539.021), Average epoch_loss = 9.13596
+Epoch# 3 of 10 epochs.
+epoch_loss = (537.401), Average epoch_loss = 9.1085
+Epoch# 4 of 10 epochs.
+epoch_loss = (535.916), Average epoch_loss = 9.08331
+Epoch# 5 of 10 epochs.
+epoch_loss = (534.298), Average epoch_loss = 9.05589
+Epoch# 6 of 10 epochs.
+epoch_loss = (532.723), Average epoch_loss = 9.02921
+Epoch# 7 of 10 epochs.
+epoch_loss = (531.341), Average epoch_loss = 9.00579
+Epoch# 8 of 10 epochs.
+epoch_loss = (529.663), Average epoch_loss = 8.97733
+Epoch# 9 of 10 epochs.
+epoch_loss = (528.252), Average epoch_loss = 8.95342
+Epoch# 10 of 10 epochs.
+epoch_loss = (527.001), Average epoch_loss = 8.93222
+Trained input weights written to file: w1-1.dat
+Trained output weights written to file: w2-1.dat
 
-```BASH
-F:\Chat-Bot-Skip-gram\usage>.\weights.exe sunshine whale whale kisses cheeks w2 w2p.dat
-```
-```
-50 X 224
-sunshine -> whale
-Cosine Similarity = -0.115319, Cosine Distance = 0.884681
-sunshine -> whale
-Cosine Similarity = -0.115319, Cosine Distance = 0.884681
-sunshine -> kisses
-Cosine Similarity = 0.207155, Cosine Distance = 0.792845
-sunshine -> cheeks
-Cosine Similarity = -0.126842, Cosine Distance = 0.873158
-whale -> whale
-Cosine Similarity = 1, Cosine Distance = 2.22045e-16
-whale -> kisses
-Cosine Similarity = 0.0796019, Cosine Distance = 0.920398
-whale -> cheeks
-Cosine Similarity = 0.0648549, Cosine Distance = 0.935145
-whale -> kisses
-Cosine Similarity = 0.0796019, Cosine Distance = 0.920398
-whale -> cheeks
-Cosine Similarity = 0.0648549, Cosine Distance = 0.935145
-kisses -> cheeks
-Cosine Similarity = 0.066965, Cosine Distance = 0.933035
-```
+.\weights.exe feeling cough throat tired w1 w1-1.dat w2 w2-1.dat
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.252387, Cosine Distance = 0.747613
+feeling -> throat
+Cosine Similarity = -0.551453, Cosine Distance = 0.448547
+feeling -> tired
+Cosine Similarity = 0.338585, Cosine Distance = 0.661415
+cough -> throat
+Cosine Similarity = -0.37179, Cosine Distance = 0.62821
+cough -> tired
+Cosine Similarity = 0.223083, Cosine Distance = 0.776917
+throat -> tired
+Cosine Similarity = -0.053339, Cosine Distance = 0.946661
+
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 10 rs 0.001 loop 0 verbose --input w1-1.dat w2-1.dat --output w1-2.dat w2-2.dat
+Corpus: ./INPUT.txt
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (525.605), Average epoch_loss = 8.90855
+Epoch# 2 of 10 epochs.
+epoch_loss = (524.057), Average epoch_loss = 8.88233
+Epoch# 3 of 10 epochs.
+epoch_loss = (522.509), Average epoch_loss = 8.85609
+Epoch# 4 of 10 epochs.
+epoch_loss = (521.104), Average epoch_loss = 8.83226
+Epoch# 5 of 10 epochs.
+epoch_loss = (519.601), Average epoch_loss = 8.80679
+Epoch# 6 of 10 epochs.
+epoch_loss = (517.972), Average epoch_loss = 8.77918
+Epoch# 7 of 10 epochs.
+epoch_loss = (516.177), Average epoch_loss = 8.74876
+Epoch# 8 of 10 epochs.
+epoch_loss = (514.809), Average epoch_loss = 8.72557
+Epoch# 9 of 10 epochs.
+epoch_loss = (513.017), Average epoch_loss = 8.6952
+Epoch# 10 of 10 epochs.
+epoch_loss = (511.713), Average epoch_loss = 8.6731
+Trained input weights written to file: w1-2.dat
+Trained output weights written to file: w2-2.dat
+
+.\weights.exe feeling cough throat tired w1 w1-2.dat w2 w2-2.dat
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.253355, Cosine Distance = 0.746645
+feeling -> throat
+Cosine Similarity = -0.548447, Cosine Distance = 0.451553
+feeling -> tired
+Cosine Similarity = 0.34048, Cosine Distance = 0.65952
+cough -> throat
+Cosine Similarity = -0.369229, Cosine Distance = 0.630771
+cough -> tired
+Cosine Similarity = 0.225261, Cosine Distance = 0.774739
+throat -> tired
+Cosine Similarity = -0.0482687, Cosine Distance = 0.951731
+
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 10 rs 0.001 loop 0 verbose --input w1-2.dat w2-2.dat --output w1-3.dat w2-3.dat
+Corpus: ./INPUT.txt
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (510.153), Average epoch_loss = 8.64666
+Epoch# 2 of 10 epochs.
+epoch_loss = (508.883), Average epoch_loss = 8.62514
+Epoch# 3 of 10 epochs.
+epoch_loss = (507.563), Average epoch_loss = 8.60276
+Epoch# 4 of 10 epochs.
+epoch_loss = (506.345), Average epoch_loss = 8.58213
+Epoch# 5 of 10 epochs.
+epoch_loss = (505.344), Average epoch_loss = 8.56516
+Epoch# 6 of 10 epochs.
+epoch_loss = (503.913), Average epoch_loss = 8.54089
+Epoch# 7 of 10 epochs.
+epoch_loss = (502.217), Average epoch_loss = 8.51216
+Epoch# 8 of 10 epochs.
+epoch_loss = (500.909), Average epoch_loss = 8.48999
+Epoch# 9 of 10 epochs.
+epoch_loss = (499.349), Average epoch_loss = 8.46354
+Epoch# 10 of 10 epochs.
+epoch_loss = (497.872), Average epoch_loss = 8.43851
+Trained input weights written to file: w1-3.dat
+Trained output weights written to file: w2-3.dat
+
+.\weights.exe feeling cough throat tired w1 w1-3.dat w2 w2-3.dat
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.254291, Cosine Distance = 0.745709
+feeling -> throat
+Cosine Similarity = -0.545113, Cosine Distance = 0.454887
+feeling -> tired
+Cosine Similarity = 0.342611, Cosine Distance = 0.657389
+cough -> throat
+Cosine Similarity = -0.366749, Cosine Distance = 0.633251
+cough -> tired
+Cosine Similarity = 0.227646, Cosine Distance = 0.772354
+throat -> tired
+Cosine Similarity = -0.0431617, Cosine Distance = 0.956838
+
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 10 rs 0.001 loop 0 verbose --input w1-3.dat w2-3.dat --output w1-4.dat w2-4.dat
+Corpus: ./INPUT.txt
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (496.408), Average epoch_loss = 8.4137
+Epoch# 2 of 10 epochs.
+epoch_loss = (495.191), Average epoch_loss = 8.39307
+Epoch# 3 of 10 epochs.
+epoch_loss = (493.871), Average epoch_loss = 8.37069
+Epoch# 4 of 10 epochs.
+epoch_loss = (492.606), Average epoch_loss = 8.34926
+Epoch# 5 of 10 epochs.
+epoch_loss = (491.27), Average epoch_loss = 8.32661
+Epoch# 6 of 10 epochs.
+epoch_loss = (489.877), Average epoch_loss = 8.303
+Epoch# 7 of 10 epochs.
+epoch_loss = (488.581), Average epoch_loss = 8.28104
+Epoch# 8 of 10 epochs.
+epoch_loss = (487.095), Average epoch_loss = 8.25584
+Epoch# 9 of 10 epochs.
+epoch_loss = (485.699), Average epoch_loss = 8.23218
+Epoch# 10 of 10 epochs.
+epoch_loss = (484.462), Average epoch_loss = 8.21122
+Trained input weights written to file: w1-4.dat
+Trained output weights written to file: w2-4.dat
+
+.\weights.exe feeling cough throat tired w1 w1-4.dat w2 w2-4.dat 
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.255294, Cosine Distance = 0.744706
+feeling -> throat
+Cosine Similarity = -0.54167, Cosine Distance = 0.45833
+feeling -> tired
+Cosine Similarity = 0.344736, Cosine Distance = 0.655264
+cough -> throat
+Cosine Similarity = -0.363991, Cosine Distance = 0.636009
+cough -> tired
+Cosine Similarity = 0.22996, Cosine Distance = 0.77004
+throat -> tired
+Cosine Similarity = -0.037653, Cosine Distance = 0.962347
+
+Learning rate is increased slihtely for fast convergence
+-----------------------------------------------------------
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.001 epoch 10 rs 0.001 loop 0 verbose --input w1-4.dat w2-4.dat --output w1-5.dat w2-5.dat
+Corpus: ./INPUT.txt
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (475.938), Average epoch_loss = 8.06674
+Epoch# 2 of 10 epochs.
+epoch_loss = (463.126), Average epoch_loss = 7.8496
+Epoch# 3 of 10 epochs.
+epoch_loss = (452.237), Average epoch_loss = 7.66503
+Epoch# 4 of 10 epochs.
+epoch_loss = (440.327), Average epoch_loss = 7.46318
+Epoch# 5 of 10 epochs.
+epoch_loss = (428.705), Average epoch_loss = 7.26619
+Epoch# 6 of 10 epochs.
+epoch_loss = (418.595), Average epoch_loss = 7.09484
+Epoch# 7 of 10 epochs.
+epoch_loss = (408.381), Average epoch_loss = 6.92171
+Epoch# 8 of 10 epochs.
+epoch_loss = (396.818), Average epoch_loss = 6.72573
+Epoch# 9 of 10 epochs.
+epoch_loss = (388.813), Average epoch_loss = 6.59005
+Epoch# 10 of 10 epochs.
+epoch_loss = (382.122), Average epoch_loss = 6.47665
+Trained input weights written to file: w1-5.dat
+Trained output weights written to file: w2-5.dat
+
+.\weights.exe feeling cough throat tired w1 w1-5.dat w2 w2-5.dat
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.267136, Cosine Distance = 0.732864
+feeling -> throat
+Cosine Similarity = -0.483114, Cosine Distance = 0.516886
+feeling -> tired
+Cosine Similarity = 0.377705, Cosine Distance = 0.622295
+cough -> throat
+Cosine Similarity = -0.324509, Cosine Distance = 0.675491
+cough -> tired
+Cosine Similarity = 0.262946, Cosine Distance = 0.737054
+throat -> tired
+Cosine Similarity = 0.0380461, Cosine Distance = 0.961954
+
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.001 epoch 10 rs 0.001 loop 0 verbose --input w1-5.dat w2-5.dat --output w1-6.dat w2-6.dat
+Corpus: ./INPUT.txt
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (374.993), Average epoch_loss = 6.35582
+Epoch# 2 of 10 epochs.
+epoch_loss = (367.749), Average epoch_loss = 6.23303
+Epoch# 3 of 10 epochs.
+epoch_loss = (360.394), Average epoch_loss = 6.10837
+Epoch# 4 of 10 epochs.
+epoch_loss = (353.029), Average epoch_loss = 5.98354
+Epoch# 5 of 10 epochs.
+epoch_loss = (346.526), Average epoch_loss = 5.87333
+Epoch# 6 of 10 epochs.
+epoch_loss = (340.617), Average epoch_loss = 5.77318
+Epoch# 7 of 10 epochs.
+epoch_loss = (334.782), Average epoch_loss = 5.67426
+Epoch# 8 of 10 epochs.
+epoch_loss = (329.605), Average epoch_loss = 5.58653
+Epoch# 9 of 10 epochs.
+epoch_loss = (323.812), Average epoch_loss = 5.48833
+Epoch# 10 of 10 epochs.
+epoch_loss = (318.741), Average epoch_loss = 5.4024
+Trained input weights written to file: w1-6.dat
+Trained output weights written to file: w2-6.dat
+
+.\weights.exe feeling cough throat tired w1 w1-6.dat w2 w2-6.dat 
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.304015, Cosine Distance = 0.695985
+feeling -> throat
+Cosine Similarity = -0.356771, Cosine Distance = 0.643229
+feeling -> tired
+Cosine Similarity = 0.452515, Cosine Distance = 0.547485
+cough -> throat
+Cosine Similarity = -0.2473, Cosine Distance = 0.7527
+cough -> tired
+Cosine Similarity = 0.316408, Cosine Distance = 0.683592
+throat -> tired
+Cosine Similarity = 0.166047, Cosine Distance = 0.833953
+
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.001 epoch 10 rs 0.001 loop 0 verbose --input w1-6.dat w2-6.dat --output w1-7.dat w2-7.dat
+Corpus: ./INPUT.txt
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (314.992), Average epoch_loss = 5.33886
+Epoch# 2 of 10 epochs.
+epoch_loss = (311.632), Average epoch_loss = 5.2819
+Epoch# 3 of 10 epochs.
+epoch_loss = (307.782), Average epoch_loss = 5.21665
+Epoch# 4 of 10 epochs.
+epoch_loss = (304.167), Average epoch_loss = 5.15537
+Epoch# 5 of 10 epochs.
+epoch_loss = (300.442), Average epoch_loss = 5.09223
+Epoch# 6 of 10 epochs.
+epoch_loss = (297.175), Average epoch_loss = 5.03687
+Epoch# 7 of 10 epochs.
+epoch_loss = (294.271), Average epoch_loss = 4.98765
+Epoch# 8 of 10 epochs.
+epoch_loss = (291.551), Average epoch_loss = 4.94155
+Epoch# 9 of 10 epochs.
+epoch_loss = (289.028), Average epoch_loss = 4.89878
+Epoch# 10 of 10 epochs.
+epoch_loss = (286.532), Average epoch_loss = 4.85648
+Trained input weights written to file: w1-7.dat
+Trained output weights written to file: w2-7.dat
+
+.\weights.exe feeling cough throat tired w1 w1-7.dat w2 w2-7.dat
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.368343, Cosine Distance = 0.631657
+feeling -> throat
+Cosine Similarity = -0.142271, Cosine Distance = 0.857729
+feeling -> tired
+Cosine Similarity = 0.566546, Cosine Distance = 0.433454
+cough -> throat
+Cosine Similarity = -0.127206, Cosine Distance = 0.872794
+cough -> tired
+Cosine Similarity = 0.392566, Cosine Distance = 0.607434
+throat -> tired
+Cosine Similarity = 0.335351, Cosine Distance = 0.664649
+
+Learning rate increased further for faster convergence, faster convergence happened but with overfitting.
+W e will discard this training session, and the next training session will use same learning rate but with lower regularization strength value
+-------------------------------------------------------------------------------------------------------------------- 
+
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.01 epoch 10 rs 0.001 loop 0 verbose --input w1-7.dat w2-7.dat --output w1-8.dat w2-8.dat
+Corpus: ./INPUT.txt
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (276.17), Average epoch_loss = 4.68084
+Epoch# 2 of 10 epochs.
+epoch_loss = (263.951), Average epoch_loss = 4.47374
+Epoch# 3 of 10 epochs.
+epoch_loss = (256.001), Average epoch_loss = 4.339
+Epoch# 4 of 10 epochs.
+epoch_loss = (253.402), Average epoch_loss = 4.29495
+Epoch# 5 of 10 epochs.
+epoch_loss = (252.324), Average epoch_loss = 4.27668
+Epoch# 6 of 10 epochs.
+epoch_loss = (251.487), Average epoch_loss = 4.2625
+Epoch# 7 of 10 epochs.
+epoch_loss = (250.84), Average epoch_loss = 4.25152
+Epoch# 8 of 10 epochs.
+epoch_loss = (250.24), Average epoch_loss = 4.24136
+Epoch# 9 of 10 epochs.
+epoch_loss = (249.549), Average epoch_loss = 4.22965
+Epoch# 10 of 10 epochs.
+epoch_loss = (249.228), Average epoch_loss = 4.22421
+Trained input weights written to file: w1-8.dat
+Trained output weights written to file: w2-8.dat
+
+.\weights.exe feeling cough throat tired w1 w1-8.dat w2 w2-8.dat show_pairs
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.996045, Cosine Distance = 0.00395504
+feeling -> throat
+Cosine Similarity = 0.998732, Cosine Distance = 0.00126778
+feeling -> tired
+Cosine Similarity = 0.999696, Cosine Distance = 0.000304029
+cough -> throat
+Cosine Similarity = 0.99398, Cosine Distance = 0.00601955
+cough -> tired
+Cosine Similarity = 0.996048, Cosine Distance = 0.00395213
+throat -> tired
+Cosine Similarity = 0.9989, Cosine Distance = 0.00110007
+
+Ok regularization strength from 0.001 to 0.0000009 but it is not stopping overfitting, next? may be keep the old rs value and decrease the learning rate...
+---------------------------------------------------------------------------------------------------------------------------
+
+PS F:\Skip-gram\usage> .\skipy.exe corpus ./INPUT.txt lr 0.01 epoch 10 rs 0.0000009 loop 0 verbose --input w1-7.dat w2-7.dat --output w1-8.dat w2-8.dat
+Corpus: ./INPUT.txt
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (276.797), Average epoch_loss = 4.69148
+Epoch# 2 of 10 epochs.
+epoch_loss = (264.823), Average epoch_loss = 4.48852
+Epoch# 3 of 10 epochs.
+epoch_loss = (257.291), Average epoch_loss = 4.36086
+Epoch# 4 of 10 epochs.
+epoch_loss = (254.558), Average epoch_loss = 4.31455
+Epoch# 5 of 10 epochs.
+epoch_loss = (252.793), Average epoch_loss = 4.28463
+Epoch# 6 of 10 epochs.
+epoch_loss = (251.538), Average epoch_loss = 4.26335
+Epoch# 7 of 10 epochs.
+epoch_loss = (250.756), Average epoch_loss = 4.2501
+Epoch# 8 of 10 epochs.
+epoch_loss = (250.196), Average epoch_loss = 4.24061
+Epoch# 9 of 10 epochs.
+epoch_loss = (249.786), Average epoch_loss = 4.23366
+Epoch# 10 of 10 epochs.
+epoch_loss = (249.272), Average epoch_loss = 4.22494
+Trained input weights written to file: w1-8.dat
+Trained output weights written to file: w2-8.dat
+
+.\weights.exe feeling cough throat tired w1 w1-8.dat w2 w2-8.dat
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.993164, Cosine Distance = 0.00683613
+feeling -> throat
+Cosine Similarity = 0.997768, Cosine Distance = 0.00223164
+feeling -> tired
+Cosine Similarity = 0.999271, Cosine Distance = 0.000729256
+cough -> throat
+Cosine Similarity = 0.989423, Cosine Distance = 0.0105768
+cough -> tired
+Cosine Similarity = 0.993538, Cosine Distance = 0.00646239
+throat -> tired
+Cosine Similarity = 0.997556, Cosine Distance = 0.00244374
+
+
+
+
+
+
+
+
+
+
+
+
+
