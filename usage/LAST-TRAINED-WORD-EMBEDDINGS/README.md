@@ -386,5 +386,15 @@ Cosine Similarity = -0.053339, Cosine Distance = 0.946661
 
 2.  _Negative Similarities_: `"feeling → throat"` and `"cough → throat"` still show negative cosine similarities, though _the values are improving_. This suggests that while _the model is learning_, the **corpus may lack sufficient co-occurrence data** to fully connect these terms.
 
+**_Insights_**.
+- _Diminishing Returns_: The improvements in cosine similarity and `loss are becoming smaller` with each session, which is expected as `the model nears convergence for the current corpus`.
+- _Corpus Size and Content_: The model's progress is limited by the size and variety of the training corpus. A larger or more diverse dataset would likely yield more substantial improvements.
 
+**_Suggestions for Next Steps_**.
+1. _Continue Training_: Proceed with additional sessions to `see if the loss plateaus` or if `further improvements are possible`.
+2. _Expand Corpus_: `Enrich the corpus with new sentences`, especially those that create stronger contextual links between words like `"feeling"`, `"throat"`, `"cough"`, and `"tired"`.
+3. _Evaluate New Word Pairs_: Test `cosine similarity for additional word pairs` to assess the breadth of the model's semantic understanding.
+4. _Adjust Hyperparameters_: Consider `experimenting with a slightly higher learning rate` `(`0.001`)` or `increasing vector dimensions to potentially capture more nuanced relationships`.
+
+By following these steps, you can maximize the effectiveness of the model and further refine its embeddings.
 
