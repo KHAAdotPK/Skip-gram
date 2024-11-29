@@ -314,3 +314,77 @@ Cosine Similarity = -0.057959, Cosine Distance = 0.942041
 By addressing these areas, the embeddings can evolve into a more meaningful representation of the corpus semantics.
 
 ### Observations from Thrid Training Session.
+
+***`The pace of loss reduction has slowed slightly compared to earlier sessions, indicating the model may be approaching an optimal representation of the current corpus`***
+
+```
+.\skipy.exe corpus ./INPUT.txt lr 0.0001 epoch 10 rs 0.001 loop 0 verbose --input w1.dat w2.dat --output w1-1.dat w2-1.dat
+Corpus: ./INPUT.txt
+Dimensions of W1 = 54 X 16
+Dimensions of W2 = 16 X 54
+Epoch# 1 of 10 epochs.
+epoch_loss = (540.924), Average epoch_loss = 9.16821
+Epoch# 2 of 10 epochs.
+epoch_loss = (539.021), Average epoch_loss = 9.13596
+Epoch# 3 of 10 epochs.
+epoch_loss = (537.401), Average epoch_loss = 9.1085
+Epoch# 4 of 10 epochs.
+epoch_loss = (535.916), Average epoch_loss = 9.08331
+Epoch# 5 of 10 epochs.
+epoch_loss = (534.298), Average epoch_loss = 9.05589
+Epoch# 6 of 10 epochs.
+epoch_loss = (532.723), Average epoch_loss = 9.02921
+Epoch# 7 of 10 epochs.
+epoch_loss = (531.341), Average epoch_loss = 9.00579
+Epoch# 8 of 10 epochs.
+epoch_loss = (529.663), Average epoch_loss = 8.97733
+Epoch# 9 of 10 epochs.
+epoch_loss = (528.252), Average epoch_loss = 8.95342
+Epoch# 10 of 10 epochs.
+epoch_loss = (527.001), Average epoch_loss = 8.93222
+Trained input weights written to file: w1-1.dat
+Trained output weights written to file: w2-1.dat
+
+.\weights.exe feeling cough throat tired w1 w1-1.dat w2 w2-1.dat
+W1: 54 X 16
+W2: 16 X 54
+W2 transposed: 54 X 16
+feeling -> cough
+Cosine Similarity = 0.252387, Cosine Distance = 0.747613
+feeling -> throat
+Cosine Similarity = -0.551453, Cosine Distance = 0.448547
+feeling -> tired
+Cosine Similarity = 0.338585, Cosine Distance = 0.661415
+cough -> throat
+Cosine Similarity = -0.37179, Cosine Distance = 0.62821
+cough -> tired
+Cosine Similarity = 0.223083, Cosine Distance = 0.776917
+throat -> tired
+Cosine Similarity = -0.053339, Cosine Distance = 0.946661
+```
+
+### Training Metrics.
+1. ***_Loss Progression:_***:
+    - _The loss continues its steady decline_: Starting loss at epoch: `540.924`, Ending loss at epoch 10: `527.001`.
+    - _Average epoch loss decreased_: From `9.16821` to `8.93222`, demonstrating consistent improvement in model performance.
+2. ***_Comparison Across Sessions_***: `The pace of loss reduction has slowed slightly compared to earlier sessions, indicating the model may be approaching an optimal representation of the current corpus`.
+
+**_Cosine Similarity Comparisons_**.
+
+| Word Pair         | Cosine Similarity(Secind Session) | Cosine Similarity(Third Session) | Change
+|-------------------|----------------------------------|-----------------------------------|------------------------------|
+| feeling -> cough  | 0.2518                            | 0.252387                         | Slight increase (+0.000587)
+| feeling -> throat | −0.55438                          | −0.551453                        | Improvement (+0.002927)
+| feeling -> tired  | 0.336756                          | 0.338585                         | Increase (+0.001829)
+| cough -> throat   | −0.374292                         |  −0.37179                        | Improvement (+0.002502)
+| cough -> tired    | 0.221063                          | 0.223083                         | Increase (+0.00202)
+| throat -> tired   | −0.057959                         | −0.053339                        | Improvement (+0.00462)
+
+1. _Continued Improvements_:
+    - Marginal but consistent increases in cosine similarity scores are seen across most word pairs.
+    - Relationships like `"feeling → throat"` and `"throat → tired"` _show small but meaningful refinements_, indicating the embeddings are better capturing semantic relationships.
+
+2.  _Negative Similarities_: `"feeling → throat"` and `"cough → throat"` still show negative cosine similarities, though _the values are improving_. This suggests that while _the model is learning_, the **corpus may lack sufficient co-occurrence data** to fully connect these terms.
+
+
+
