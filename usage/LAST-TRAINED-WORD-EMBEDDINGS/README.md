@@ -371,7 +371,7 @@ Cosine Similarity = -0.053339, Cosine Distance = 0.946661
 
 **_Cosine Similarity Comparisons_**.
 
-| Word Pair         | Cosine Similarity(Secind Session) | Cosine Similarity(Third Session) | Change
+| Word Pair         | Cosine Similarity(Second Session) | Cosine Similarity(Third Session) | Change
 |-------------------|----------------------------------|-----------------------------------|------------------------------|
 | feeling -> cough  | 0.2518                            | 0.252387                         | Slight increase (+0.000587)
 | feeling -> throat | −0.55438                          | −0.551453                        | Improvement (+0.002927)
