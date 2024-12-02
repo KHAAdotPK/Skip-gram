@@ -780,7 +780,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
      */
     try 
     {
-        oneHot = Numcy::zeros(DIMENSIONS{vocab.numberOfUniqueTokens(), 1, NULL, NULL});
+        oneHot = Numcy::zeros(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), 1, NULL, NULL});
         
         /*
             The following code block, iterates through the context word indices (left and right) from the pair object.
@@ -794,14 +794,14 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
          */
         for (int i = SKIP_GRAM_WINDOW_SIZE - 1; i >= 0; i--)
         {       
-            if (((*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE) < vocab.numberOfUniqueTokens())
+            if (((*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE) < /*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens())
             {
                 oneHot[(*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
             }
         }
         for (int i = 0; i < SKIP_GRAM_WINDOW_SIZE; i++)
         {
-            if (((*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE) < vocab.numberOfUniqueTokens())
+            if (((*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE) < /*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens())
             {
                 oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
             }        
@@ -894,7 +894,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
         std::cout<< grad_h.getShape().getNumberOfColumns() << " ------------------------- " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
          */
 
-        grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
+        grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfTokens() /*vocab.numberOfUniqueTokens()*/, NULL, NULL});
 
         /*
             Dimensions of grad_h is (1, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
