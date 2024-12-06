@@ -324,7 +324,9 @@ struct forward_propogation
             This intermediate value is used in calculations involving gradients in "backward pass" or "back propogation"(the function backward).
          */
         //E* u;
-        Collective<E> intermediate_activation;  
+        Collective<E> intermediate_activation;
+        
+          
 };
 
 /*
@@ -614,6 +616,116 @@ struct backward_propogation
 };
 
 /*
+    In Skip-gram, we are predicting the context words from the central word (target).
+    So, the negative samples should be words that are not the actual context words for the given target word 
+    but could be drawn from the entire vocabulary.
+
+    A better way to phrase it:
+    We need to randomly select words from the vocabulary that are not the true context words when given a target word.
+    These negative samples help the model learn to distinguish between actual context words and unrelated words.
+ */
+/**
+ * @brief Generates negative samples for multiple target-context word pairs in a Skip-gram model.
+ *
+ * This function selects negative samples for each target-context word pair by randomly sampling 
+ * words from the vocabulary that do not belong to the immediate context of the given target word.
+ * Negative sampling helps the Skip-gram model distinguish between true context words 
+ * and unrelated words, aiding in the training process.
+ *
+ * @tparam E The data type for indices, typically an integer type like `size_t` or `int`.
+ *
+ * @param word_pairs A vector of pointers to target-context word pairs (WORDPAIRS_PTR).
+ *                   Each pair contains a target word and its associated context words.
+ * @param n The number of negative samples to generate for each target-context word pair.
+ *          Defaults to SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES.
+ *
+ * @return A map (std::unordered_map) where:
+ *         - The key is a pointer to a target-context word pair (WORDPAIRS_PTR).
+ *         - The value is a vector of indices (E) representing negative samples 
+ *           for the corresponding word pair.
+ *
+ * @throws ala_exception If memory allocation fails or any other runtime error occurs.
+ *
+ * Example usage:
+ * @code
+ * std::vector<WORDPAIRS_PTR> word_pairs = ...; // List of word pairs
+ * auto negative_samples_map = generateNegativeSamplesBatch(word_pairs, 5);
+ *
+ * for (const auto& [pair, samples] : negative_samples_map) {
+ *     std::cout << "Negative samples for pair: ";
+ *     for (const auto& sample : samples) {
+ *         std::cout << sample << " ";
+ *     }
+ *     std::cout << std::endl;
+ * }
+ * @endcode
+ *
+ * Notes:
+ * - The function assumes that the vocabulary size is large enough to provide meaningful negative samples.
+ * - Random sampling is uniform; for more sophisticated sampling, replace the random generator with a 
+ *   frequency-based distribution (e.g., unigram table with power smoothing).
+ */
+template <typename E = cc_tokenizer::string_character_traits<char>::size_type>
+Collective<E> generateNegativeSamples(WORDPAIRS_PTR current_word_pair_ptr, CORPUS& vocab, E n = SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES) throw (ala_exception)
+{
+    // Initialize random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<E> distrib(0, vocab.numberOfUniqueTokens() - 1);
+        
+    CONTEXTWORDS_PTR left_context = current_word_pair_ptr->getLeft();
+    CONTEXTWORDS_PTR right_context = current_word_pair_ptr->getRight();
+
+    cc_tokenizer::string_character_traits<char>::size_type* ptr = NULL; 
+    
+    try
+    {                
+        ptr = cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().allocate(n);
+    }
+    catch (const std::bad_alloc& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("generateNegativeSamples() Error: ") + e.what());
+    }
+    catch (const std::length_error& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("generateNegativeSamples() Error: ") + e.what());
+    }
+
+    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < n; i++)
+    {
+        *(ptr + i) = static_cast<cc_tokenizer::string_character_traits<char>::size_type>(INDEX_NOT_FOUND_AT_VALUE);
+    }
+    
+    // Generate negative samples
+    E i = 0;
+    for (; i < n;)
+    {
+         // Randomly select a central word from the vocabulary, central words are all the unique words
+        cc_tokenizer::string_character_traits<char>::size_type central_word_index = distrib(gen);
+
+        cc_tokenizer::string_character_traits<char>::size_type j = 0;
+        for (; j < SKIP_GRAM_CONTEXT_WINDOW_SIZE;)
+        {
+            if ((left_context->array[j] == (central_word_index + INDEX_ORIGINATES_AT_VALUE)) || (right_context->array[j] == (central_word_index + INDEX_ORIGINATES_AT_VALUE)))
+            {
+                break;
+            }
+
+            j++;
+        } 
+
+        if (!(j < SKIP_GRAM_CONTEXT_WINDOW_SIZE))
+        {
+            *(ptr + i) = central_word_index /*+ INDEX_ORIGINATES_AT_VALUE*/;
+
+            i++;
+        }                
+    }
+
+    return Collective<E>{ptr, DIMENSIONS{n, 1, NULL, NULL}};               
+}
+
+/*
     The softmax function is a mathematical function that takes a vector of real numbers as input and normalizes
     them into a probability distribution.
     This distribution ensures that all the output values lie between 0 and 1, and they sum up to 1. 
@@ -659,8 +771,8 @@ Collective<T> softmax(Collective<T>& a, bool verbose = false) throw (ala_excepti
     @vocab, instance of corpus class
     @pair, a pointer to a word pair object (containing center word index and context word indices) 
  */
-template <typename T = double>
-forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF vocab, WORDPAIRS_PTR pair, bool verbose = false) throw (ala_exception)
+template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
+forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, WORDPAIRS_PTR pair, bool verbose = false) throw (ala_exception)
 {
     if (pair->getCenterWord() > W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
     {
@@ -726,6 +838,52 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF 
                         
         /*cc_tokenizer::allocator<T>().deallocate(h_ptr);
         h_ptr = NULL;*/
+
+        /*
+            Negative samples....
+         */
+        Collective<T> h_negative_samples;
+        Collective<T> u_negative_samples;
+        Collective<T> y_pred_negative_samples;
+
+        h_ptr = NULL;
+
+        if (negative_samples_indices.getShape().getN())
+        {
+            h_ptr = cc_tokenizer::allocator<T>().allocate(W1.getShape().getNumberOfColumns()*negative_samples_indices.getShape().getN());
+
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
+            {
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                {
+                    *(h_ptr + i*W1.getShape().getNumberOfColumns() + j) = W1[negative_samples_indices[i]*W1.getShape().getNumberOfColumns() + j];
+                }
+            }
+
+            h_negative_samples = Collective<T>{h_ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), negative_samples_indices.getShape().getN(), NULL, NULL}};
+
+            u_negative_samples = Numcy::dot(h_negative_samples, W2);
+
+            /*
+            T* ptr = cc_tokenizer::allocator<T>().allocate(3);
+            ptr[0] = 0.0;
+            ptr[1] = 1.0;
+            ptr[2] = -1.0;
+            Collective<T> input = Collective<T>{ptr, DIMENSIONS{3, 1, NULL, NULL}};
+            */
+
+            Collective<T> result = Numcy::sigmoid<T>(u_negative_samples /*input*/);
+
+            /*
+            for (int i = 0; i < result.getShape().getN(); i++)
+            {
+                std::cout<< result[i] << ", ";
+            }            
+            std::cout<< std::endl;
+             */
+
+            y_pred_negative_samples = softmax(u_negative_samples);
+        }
     }
     catch (std::length_error& e)
     {        
@@ -1020,10 +1178,11 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
             backward_propogation<t> bp;\
             try\
             {\
+                Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples = generateNegativeSamples(pair, vocab);\
                 /* Forward Propagation: The forward function performs forward propagation and calculate the hidden layer\
                    activation and predicted probabilities using the current word pair (pair), embedding matrix (W1),\
                    output weights (W2), vocabulary (vocab), and data type (t). The result is stored in the fp variable.*/\
-                fp = forward<t>(W1, W2, vocab, pair);\
+                fp = forward<t>(W1, W2, negative_samples, vocab, pair);\
                 /* Backward Propagation: The backward function performs backward propagation and calculate the gradients\
                    with respect to the input and output layer weights using the forward propagation results (fp), word pair (pair),\
                    embedding matrix (W1), output weights (W2), vocabulary (vocab), and data type (t).\
@@ -1043,6 +1202,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
                 /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
                    In NLL, lower values indicate better performance. */\
                 el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
+                /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
             }\
             catch (ala_exception& e)\
             {\

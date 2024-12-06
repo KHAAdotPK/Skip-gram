@@ -58,4 +58,11 @@
 #define SKIP_GRAM_WINDOW_SIZE 2
 #endif
 
+/*
+   Negative Sampling: Regularizes by discouraging the model from assigning high probabilities to incorrect context words.
+ */
+#ifndef SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES
+#define SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES 5
+#endif
+
 #endif
