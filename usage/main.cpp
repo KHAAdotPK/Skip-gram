@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[])
 { 
-    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output;
+    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
 
@@ -35,6 +35,7 @@ int main(int argc, char* argv[])
     FIND_ARG(argv, argc, argsv_parser, "loop", arg_loop);
     FIND_ARG(argv, argc, argsv_parser, "--input", arg_input);
     FIND_ARG(argv, argc, argsv_parser, "--output", arg_output);
+    FIND_ARG(argv, argc, argsv_parser, "ns", arg_ns);
 
     if (arg_corpus.i)
     {
@@ -372,7 +373,7 @@ int main(int argc, char* argv[])
     /* Start training. */
     for (long i = 0; i < default_loop && !stop_training_flag; i++)
     {
-        SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_rs, double, stop_training_flag, arg_verbose.i ? true : false);
+        SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_rs, double, stop_training_flag, arg_ns.i ? true : false, arg_verbose.i ? true : false);
     }
 
     /* 
