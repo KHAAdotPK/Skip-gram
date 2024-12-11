@@ -59,6 +59,8 @@ loop --loop (Repeats the training loop on previously trained weights at least on
 batch --batch (Loads initial weights from a specified file, allowing batch processing with predefined starting weights.)\n\
 input --input (Specifies the filenames to retrieve the partially input and output trained weights during training.)\n\
 output --output (Specifies the filenames to store the input and output trained weights after completion of training.)\n\
-ns --ns negative_sampling --negative_sampling (This flag enables negative sampling. It is the process of approximating the softmax function by just drawing a few examples from the set of samples that do not appear in the context of the main word.)\n"
+ns --ns negative_sampling --negative_sampling (This flag enables negative sampling. It is the process of approximating the softmax function by just drawing a few examples from the set of samples that do not appear in the context of the main word.)\n\
+show_pairs --show_pairs (Displays pairs of target/center words and their surrounding context words. The number of context words for each target word is determined by the macro SKIP_GRAM_WINDOW_SIZE, which is a configurable hyperparameter)\n"
+
 
 #endif

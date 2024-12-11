@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[])
 { 
-    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns;
+    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
 
@@ -36,6 +36,7 @@ int main(int argc, char* argv[])
     FIND_ARG(argv, argc, argsv_parser, "--input", arg_input);
     FIND_ARG(argv, argc, argsv_parser, "--output", arg_output);
     FIND_ARG(argv, argc, argsv_parser, "ns", arg_ns);
+    FIND_ARG(argv, argc, argsv_parser, "show_pairs", arg_show_pairs);
 
     if (arg_corpus.i)
     {
@@ -170,7 +171,7 @@ int main(int argc, char* argv[])
         
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> data_parser(data);
     class Corpus vocab(data_parser);
-    PAIRS pairs(vocab, arg_verbose.i ? true : false);
+    PAIRS pairs(vocab, arg_show_pairs.i ? true : false);
 
     /*
         For the neural network itself, Skip-gram typically uses a simple architecture. 

@@ -22,8 +22,30 @@ struct forward_propogation
         are initialized directly in the initialization list.
         This approach is cleaner and more efficient than assigning them inside the constructor body.
      */
-    forward_propogation(void) : hidden_layer_vector(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}), predicted_probabilities(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}), intermediate_activation(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}})
+    forward_propogation(void) : hidden_layer_vector(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}), 
+                                predicted_probabilities(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}), 
+                                intermediate_activation(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}), 
+                                hidden_layer_vector_negative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}) ,
+                                predicted_probabilities_negative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}),
+                                intermediate_activation_neative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}})
     {        
+    }
+
+    forward_propogation<E>(Collective<E>& h, Collective<E>& y_pred, Collective<E>& u, Collective<E>& h_ns, Collective<E>& y_pred_ns, Collective<E>& u_ns) throw (ala_exception)    
+    {
+        try
+        {        
+            hidden_layer_vector = h;
+            predicted_probabilities = y_pred;
+            intermediate_activation = u;
+            hidden_layer_vector_negative_samples = h_ns;
+            predicted_probabilities_negative_samples = y_pred_ns;
+            intermediate_activation_neative_samples = u_ns;            
+        }
+        catch (ala_exception& e)
+        {
+            throw ala_exception(cc_tokenizer::String<char>("forward_propogation() Error: ") + cc_tokenizer::String<char>(e.what())); 
+        }
     }
 
     /*
@@ -33,8 +55,8 @@ struct forward_propogation
         implemented but still commented out from the implementation of function.
      */
     //forward_propogation<E>(Collective<E>& h, Collective<E>& y_pred, Collective<E>& u) : hidden_layer_vector(h), predicted_probabilities(y_pred), intermediate_activation(u)
-    forward_propogation<E>(Collective<E>& h, Collective<E>& y_pred, Collective<E>& u) /*: hidden_layer_vector(h), predicted_probabilities(y_pred), intermediate_activation(u) */
-    {           
+    /*forward_propogation<E>(Collective<E>& h, Collective<E>& y_pred, Collective<E>& u)*/ /*: hidden_layer_vector(h), predicted_probabilities(y_pred), intermediate_activation(u) */
+    /*{           
         E* ptr = NULL;
 
         try 
@@ -102,9 +124,27 @@ struct forward_propogation
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
         intermediate_activation = Collective<E>{ptr, u.getShape().copy()};
+    }*/
+
+    forward_propogation<E>(forward_propogation<E>& other) throw (ala_exception)
+    {
+        try
+        {
+            hidden_layer_vector = other.hidden_layer_vector;
+            intermediate_activation = other.intermediate_activation;
+            predicted_probabilities = other.predicted_probabilities;
+
+            hidden_layer_vector_negative_samples = other.hidden_layer_vector_negative_samples;
+            intermediate_activation_neative_samples = other.intermediate_activation_neative_samples;
+            predicted_probabilities_negative_samples = other.predicted_probabilities_negative_samples;
+        }
+        catch (ala_exception& e)
+        {
+            throw ala_exception(cc_tokenizer::String<char>("forward_propogation() Error: ") + cc_tokenizer::String<char>(e.what()));
+        }
     }
 
-    forward_propogation<E>(forward_propogation<E>& other) 
+    /*forward_propogation<E>(forward_propogation<E>& other) 
     {           
         E* ptr = cc_tokenizer::allocator<E>().allocate(other.hidden_layer_vector.getShape().getN());
         for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < other.hidden_layer_vector.getShape().getN(); i++)
@@ -126,9 +166,9 @@ struct forward_propogation
             ptr[i] = other.intermediate_activation[i];
         }
         intermediate_activation = Collective<E>{ptr, other.intermediate_activation.getShape().copy()};
-    }
+    }*/
 
-    forward_propogation<E>& operator= (forward_propogation<E>& other)    
+    forward_propogation<E>& operator= (forward_propogation<E>& other) throw (ala_exception)   
     { 
         if (this == &other)
         {
@@ -202,6 +242,72 @@ struct forward_propogation
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
         intermediate_activation = Collective<E>{ptr, other.intermediate_activation.getShape().copy()};
+        
+        try 
+        {
+            ptr = cc_tokenizer::allocator<E>().allocate(other.hidden_layer_vector_negative_samples.getShape().getN());
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < other.hidden_layer_vector_negative_samples.getShape().getN(); i++)
+            {
+                ptr[i] = other.hidden_layer_vector_negative_samples[i];
+            }        
+        }
+        catch (std::length_error& e)
+        {
+            throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what())); 
+        }
+        catch (std::bad_alloc& e)
+        {
+           throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what())); 
+        }
+        catch (ala_exception& e)
+        {
+            throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
+        }
+        hidden_layer_vector_negative_samples = Collective<E>{ptr, other.hidden_layer_vector_negative_samples.getShape().copy()};
+        
+        try
+        {                
+            ptr = cc_tokenizer::allocator<E>().allocate(other.predicted_probabilities_negative_samples.getShape().getN());
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < other.predicted_probabilities_negative_samples.getShape().getN(); i++)
+            {
+                ptr[i] = other.predicted_probabilities_negative_samples[i];
+            }
+        }
+        catch (std::length_error& e)
+        {
+            throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what())); 
+        }
+        catch (std::bad_alloc& e)
+        {
+           throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what())); 
+        }
+        catch (ala_exception& e)
+        {
+            throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
+        }
+        predicted_probabilities_negative_samples = Collective<E>{ptr, other.predicted_probabilities_negative_samples.getShape().copy()};
+        
+        try
+        {        
+            ptr = cc_tokenizer::allocator<E>().allocate(other.intermediate_activation_neative_samples.getShape().getN());
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < other.intermediate_activation_neative_samples.getShape().getN(); i++)
+            {
+                ptr[i] = other.intermediate_activation_neative_samples[i];
+            }
+        }
+        catch (std::length_error& e)
+        {
+            throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what())); 
+        }
+        catch (std::bad_alloc& e)
+        {
+           throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what())); 
+        }
+        catch (ala_exception& e)
+        {
+            throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
+        }
+        intermediate_activation_neative_samples = Collective<E>{ptr, other.intermediate_activation_neative_samples.getShape().copy()};
         
         return *this;
     }
@@ -284,7 +390,7 @@ struct forward_propogation
      */
 
     template <typename T>
-    friend backward_propogation<T> backward(Collective<T>&, Collective<T>&, CORPUS_REF, forward_propogation<T>&, WORDPAIRS_PTR, bool) throw (ala_exception);
+    friend backward_propogation<T> backward(Collective<T>&, Collective<T>&, CORPUS_REF, forward_propogation<T>&, WORDPAIRS_PTR, bool, bool) throw (ala_exception);
 
     /*
         TODO, uncomment the following statement and make all variables/properties of this vector private.
@@ -325,8 +431,16 @@ struct forward_propogation
          */
         //E* u;
         Collective<E> intermediate_activation;
-        
-          
+
+        /*
+            Negative samples....
+        */
+        /* h_negative_samples */
+        Collective<E> hidden_layer_vector_negative_samples;
+        /* y_pred_negative_samples */
+        Collective<E> predicted_probabilities_negative_samples;
+        /* u_negative_samples */
+        Collective<E> intermediate_activation_neative_samples;         
 };
 
 /*
@@ -569,7 +683,7 @@ struct backward_propogation
         Declare backward as a friend function within the struct. It is templated, do we need it like this.
      */
     template <typename T>
-    friend backward_propogation<T> backward(Collective<T>&, Collective<T>&, CORPUS_REF, forward_propogation<T>&, WORDPAIRS_PTR, bool) throw (ala_exception);
+    friend backward_propogation<T> backward(Collective<T>&, Collective<T>&, CORPUS_REF, forward_propogation<T>&, WORDPAIRS_PTR, bool, bool) throw (ala_exception);
     
     /*
         TODO, uncomment the following statement and make all variables/properties of this vector private.
@@ -764,28 +878,50 @@ Collective<T> softmax(Collective<T>& a, bool verbose = false) throw (ala_excepti
 } 
 
 /*
-    Performs part of the forward propagation step in a Skip-gram model
-    
-    @W1, embedding matrix (Collective object) 
-    @W2, output layer weight matrix (Collective object)
-    @vocab, instance of corpus class
-    @pair, a pointer to a word pair object (containing center word index and context word indices) 
- */
+    Performs a portion of the forward propagation step in a Skip-gram model.
+
+    @param W1: Embedding matrix represented as a Collective object. This matrix stores word embeddings.
+    @param W2: Output layer weight matrix represented as a Collective object. This matrix contains weights connecting hidden to output layers.
+    @param negative_samples_indices: A Collective object containing indices of negative samples in the embedding matrix (W1).
+    @param vocab: An instance of the corpus class that provides context about the vocabulary used in the model.
+    @param pair: A pointer to a WordPair object, which contains the center word index and context word indices for the Skip-gram model.
+    @param ns: A flag indicating whether to use negative sampling. 
+               If true, negative sampling is applied; otherwise, a full softmax is used.
+    @param verbose: A flag for debugging. When set to true, detailed debug information is printed to the screen.
+
+    The function computes the following:
+    - Extracts the embedding vector for the center word from W1 (hidden layer representation).
+    - Performs a dot product of the hidden layer vector with W2 to obtain unnormalized scores (logits).
+    - Applies either softmax (for full vocabulary prediction) or sigmoid (for negative sampling) to generate probabilities.
+    - Handles negative samples if `ns` is set to true, ensuring correct gradient calculations for the Skip-gram model.
+*/
 template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
-forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, WORDPAIRS_PTR pair, bool verbose = false) throw (ala_exception)
+forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, WORDPAIRS_PTR pair, bool ns = false, bool verbose = false) throw (ala_exception)
 {
     if (pair->getCenterWord() > W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
     {
         throw ala_exception("forward() Error: Index of center word is out of bounds of W1.");
     }
-    
+
+    /*
+        Positive Sample Processing (h, u, y_pred)
+     */    
     Collective<T> h;
     Collective<T> u;
     Collective<T> y_pred;
+
+    /*
+        Negative Sample Processing (h_negative_samples, u_negative_samples, y_pred_negative_samples)
+     */
+    Collective<T> h_negative_samples;
+    Collective<T> u_negative_samples;
+    Collective<T> y_pred_negative_samples;
             
     try 
     {
         /*
+            TODO, use Collective::slice(),
+             
             Extract the corresponding word embedding from the weight matrix 𝑊1.
             Instead of directly using a one-hot input vector, this implementation uses a linked list of word pairs.
             Each pair provides the index of the center word, which serves to extract the relevant embedding from 𝑊1.
@@ -802,8 +938,13 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
                 throw ala_exception(cc_tokenizer::String<char>("Hidden layer at ") + cc_tokenizer::String<char>("(W1 row) center word index ") +  cc_tokenizer::String<char>(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + cc_tokenizer::String<char>(" and (column index) i -> ") + cc_tokenizer::String<char>(i) + cc_tokenizer::String<char>(" -> [ ") + cc_tokenizer::String<char>("_isnanf() was true") + cc_tokenizer::String<char>("\" ]"));
             }             
         }
-
+        // The embedding vector for the center word is extracted from W1 and stored in h  
         h = Collective<T>{h_ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), 1, NULL, NULL}};
+
+        cc_tokenizer::allocator<T>().deallocate(h_ptr, W1.getShape().getNumberOfColumns());
+        h_ptr = NULL;    
+
+        // Compute the logits u using the dot product of h (center word embedding) and W2 (output layer weights)
         /*	
             Represents an intermediat gradient.	 
             This vector has shape (1, len(vocab)), similar to y_pred. 
@@ -821,68 +962,80 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
             The dot product gives us the logits or unnormalized probabilities (u), 
             which can then be transformed into probabilities using a softmax function
          */
-        /*std::cout<< "--> Dimensions of h = " << h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h.getShape().getNumberOfColumns() << std::endl;
-        std::cout<< "--> Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;*/
+        /*std::cout<< "--> fp Dimensions of h =  Rows" << h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h.getShape().getNumberOfColumns() << std::endl;
+        std::cout<< "--> fp Dimensions of W2 = Rows " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;*/
         u = Numcy::dot(h, W2);  
         /*std::cout<< "--> Dimensions of u = " << u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << u.getShape().getNumberOfColumns() << std::endl;*/
-        /*
-            The resulting vector (u) is passed through a softmax function to obtain the predicted probabilities (y_pred). 
-            The softmax function converts the raw scores into probabilities.
 
-            Ensure that y_pred has valid probability values (between 0 and 1). The implementation is correct and that it normalizes the probabilities correctly, 
-            i.e., all values should sum up to 1. If there's a bug in the softmax calculation, it might return incorrect values (like 0 or very small numbers).
-
-            In `Skip-gram`, this output represents the likelihood of each word being one of the context words for the given center word.
-         */
-        y_pred = softmax(u);
-                        
-        /*cc_tokenizer::allocator<T>().deallocate(h_ptr);
-        h_ptr = NULL;*/
-
-        /*
-            Negative samples....
-         */
-        Collective<T> h_negative_samples;
-        Collective<T> u_negative_samples;
-        Collective<T> y_pred_negative_samples;
-
-        h_ptr = NULL;
-
-        if (negative_samples_indices.getShape().getN())
+        if (!ns)
         {
-            h_ptr = cc_tokenizer::allocator<T>().allocate(W1.getShape().getNumberOfColumns()*negative_samples_indices.getShape().getN());
+            /*
+                When ns == false (no negative sampling), y_pred is computed using softmax(u),
+                which is correct for the traditional skip-gram model without negative sampling.
+             */
+            /*
+                The resulting vector (u) is passed through a softmax function to obtain the predicted probabilities (y_pred). 
+                The softmax function converts the raw scores into probabilities.
 
-            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
+                Ensure that y_pred has valid probability values (between 0 and 1). The implementation is correct and that it normalizes the probabilities correctly, 
+                i.e., all values should sum up to 1. If there's a bug in the softmax calculation, it might return incorrect values (like 0 or very small numbers).
+
+                In `Skip-gram`, this output represents the likelihood of each word being one of the context words for the given center word.
+            */
+            y_pred = softmax(u);
+
+            /*cc_tokenizer::allocator<T>().deallocate(h_ptr);
+            h_ptr = NULL;*/            
+        }
+        else 
+        {
+            /*
+                When ns == true (negative sampling), y_pred is computed using sigmoid(u),
+                which is correct and aligns with the binary classification objective of negative sampling.
+             */
+            y_pred = Numcy::sigmoid(u);
+                                                                                         
+            if (negative_samples_indices.getShape().getN())
             {
-                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                // Embedding Extraction: The embeddings for the negative samples are extracted from W1 using negative_samples_indices
+                h_ptr = cc_tokenizer::allocator<T>().allocate(W1.getShape().getNumberOfColumns()*negative_samples_indices.getShape().getN());
+                for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
                 {
-                    *(h_ptr + i*W1.getShape().getNumberOfColumns() + j) = W1[negative_samples_indices[i]*W1.getShape().getNumberOfColumns() + j];
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                    {
+                        *(h_ptr + i*W1.getShape().getNumberOfColumns() + j) = W1[negative_samples_indices[i]*W1.getShape().getNumberOfColumns() + j];
+                    }
+                }
+                h_negative_samples = Collective<T>{h_ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), negative_samples_indices.getShape().getN(), NULL, NULL}};
+
+                // Dot Product: The logits u_negative_samples are computed by performing a dot product between the embeddings of negative samples (h_negative_samples) and W2
+                u_negative_samples = Numcy::dot(h_negative_samples, W2);
+
+                /*
+                    T* ptr = cc_tokenizer::allocator<T>().allocate(3);
+                    ptr[0] = 0.0;
+                    ptr[1] = 1.0;
+                    ptr[2] = -1.0;
+                    Collective<T> input = Collective<T>{ptr, DIMENSIONS{3, 1, NULL, NULL}};
+                 */
+                //Collective<T> result = Numcy::sigmoid<T>(u_negative_samples /*input*/);
+
+                /*
+                for (int i = 0; i < result.getShape().getN(); i++)
+                {
+                    std::cout<< result[i] << ", ";
+                }            
+                std::cout<< std::endl;
+                 */
+                // Prediction (y_pred_negative_samples): Applied the sigmoid function to compute probabilities for negative samples. 
+                y_pred_negative_samples = Numcy::sigmoid(u_negative_samples);
+                // Post-processing of y_pred_negative_samples to compute 1 - sigmoid(u_negative_samples).
+                // It will make it align with the binary cross-entropy loss for negative samples log(1 - sigmoid(u_negative_samples))
+                for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < y_pred_negative_samples.getShape().getN(); i++)
+                {
+                    y_pred_negative_samples[i] = (1 - y_pred_negative_samples[i]);
                 }
             }
-
-            h_negative_samples = Collective<T>{h_ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), negative_samples_indices.getShape().getN(), NULL, NULL}};
-
-            u_negative_samples = Numcy::dot(h_negative_samples, W2);
-
-            /*
-            T* ptr = cc_tokenizer::allocator<T>().allocate(3);
-            ptr[0] = 0.0;
-            ptr[1] = 1.0;
-            ptr[2] = -1.0;
-            Collective<T> input = Collective<T>{ptr, DIMENSIONS{3, 1, NULL, NULL}};
-            */
-
-            Collective<T> result = Numcy::sigmoid<T>(u_negative_samples /*input*/);
-
-            /*
-            for (int i = 0; i < result.getShape().getN(); i++)
-            {
-                std::cout<< result[i] << ", ";
-            }            
-            std::cout<< std::endl;
-             */
-
-            y_pred_negative_samples = softmax(u_negative_samples);
         }
     }
     catch (std::length_error& e)
@@ -898,15 +1051,19 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
         throw ala_exception(cc_tokenizer::String<char>("forward() Error: ") + cc_tokenizer::String<char>(e.what()));
     }
                 
-    return forward_propogation<T>{h, y_pred, u};
+    //return forward_propogation<T>{h, y_pred, u};
+    return forward_propogation<T>(h, y_pred, u, h_negative_samples, y_pred_negative_samples, u_negative_samples);
 }
 
-template <typename T = double>
-backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_REF vocab, forward_propogation<T>& fp, WORDPAIRS_PTR pair, bool verbose = false) throw (ala_exception)
+template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
+backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, forward_propogation<T>& fp, WORDPAIRS_PTR pair, bool ns = false, bool verbose = false) throw (ala_exception)
 {
     /* The hot one array is row vector, and has shape (1, vocab.len = REPLIKA_VOCABULARY_LENGTH a.k.a no redundency) */
     Collective<T> oneHot;
-    /* The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1, len(vocab) without redundency) */
+    /* 
+        Gradient for the positive sample.
+        The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1, len(vocab) without redundency) 
+     */
     Collective<T> grad_u;
     /*
         Dimensions of grad_u is (1, len(vocab) without redundency)
@@ -932,76 +1089,156 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
      */
     Collective<T> grad_W1;
 
-    /*
-        Creating a One-Hot Vector, using Numcy::zeros with a shape of (1, vocab.numberOfUniqueTokens()).
-        This creates a zero-filled column vector with a length equal to the vocabulary size
-     */
+    Collective<T> grad_u_negative_samples;
+    Collective<T> grad_W2_negative_samples;
+    
     try 
     {
-        oneHot = Numcy::zeros(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), 1, NULL, NULL});
-        
+        //std::cout<< "-> Columns = " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << ", Rows = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
         /*
-            The following code block, iterates through the context word indices (left and right) from the pair object.
-            For each valid context word index (i), it sets the corresponding element in the oneHot vector to 1.
-            This effectively creates a one-hot encoded representation of the context words.
-            
-            Note: We are only handling unique tokens. Therefore, in some cases,
-            the number of one-hot encoded vectors may be less than the total number
-            of context words. This occurs when a single one-hot vector represents 
-            multiple occurrences of the same token within the context.            
+            h_transpose has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, 1 column)
          */
-        for (int i = SKIP_GRAM_WINDOW_SIZE - 1; i >= 0; i--)
-        {       
-            if (((*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE) < /*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens())
-            {
-                oneHot[(*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
-            }
-        }
-        for (int i = 0; i < SKIP_GRAM_WINDOW_SIZE; i++)
+        Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);
+        /*std::cout<< "h(fp.hidden_layer_vector) Columns = " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << ", Rows = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;*/
+        
+        if (!ns)
         {
-            if (((*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE) < /*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens())
-            {
-                oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
-            }        
-        }
-
-        /*           
-            Note: We are only handling unique tokens. Therefore, in some cases,
-            the number of one-hot encoded vectors may be less than the total number
-            of context words. This occurs when a single one-hot vector represents 
-            multiple occurrences of the same token within the context.
-
-            for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
-            {
-                if (oneHot[i] == 1)
+            /*
+                Creating a One-Hot Vector, using Numcy::zeros with a shape of (1, vocab.numberOfUniqueTokens()).
+                This creates a zero-filled column vector with a length equal to the vocabulary size
+             */
+            oneHot = Numcy::zeros(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), 1, NULL, NULL});
+        
+            /*
+                The following code block, iterates through the context word indices (left and right) from the pair object.
+                For each valid context word index (i), it sets the corresponding element in the oneHot vector to 1.
+                This effectively creates a one-hot encoded representation of the context words.
+            
+                Note: We are only handling unique tokens. Therefore, in some cases,
+                the number of one-hot encoded vectors may be less than the total number
+                of context words. This occurs when a single one-hot vector represents 
+                multiple occurrences of the same token within the context.            
+             */
+            for (int i = SKIP_GRAM_WINDOW_SIZE - 1; i >= 0; i--)
+            {       
+                if (((*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE) < /*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens())
                 {
-                    std::cout<< oneHot[i] << ", ";
+                    oneHot[(*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
                 }
             }
-            std::cout<< std::endl;
-         */
+            for (int i = 0; i < SKIP_GRAM_WINDOW_SIZE; i++)
+            {
+                if (((*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE) < /*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens())
+                {
+                    oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
+                }        
+            }
+
+            /*           
+                Note: We are only handling unique tokens. Therefore, in some cases,
+                the number of one-hot encoded vectors may be less than the total number
+                of context words. This occurs when a single one-hot vector represents 
+                multiple occurrences of the same token within the context.
+
+                for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
+                {
+                    if (oneHot[i] == 1)
+                    {
+                        std::cout<< oneHot[i] << ", ";
+                    }
+                }
+                std::cout<< std::endl;
+             */
     
-        /* 
-            The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1, len(vocab) without redundency)
+             /* 
+                The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1 row, len(vocab columns) with redundency)
 
-            Compute the gradient for the center word's embedding by subtracting the one-hot vector of the actual context word
-            from the predicted probability distribution.
-            `fp.predicted_probabilities` contains the predicted probabilities over all words in the vocabulary. 
-                -> If fp.predicted_probabilities[i] is a small probability (close to zero like 1.70794e-18), it means the model is quite confident that class i is not the correct label.
-                -> Floating-Point Precision: Very small probabilities close to zero (like 1.7×10e^−18) can sometimes appear as exactly zero due to precision limits, 
-                   but this is generally fine for gradient computation as the training process accounts for it.
-            `oneHot` is a one-hot vector representing the true context word in the vocabulary.
-            The result, `grad_u`, is the error signal for updating the center word's embedding in the Skip-gram model.
+                Compute the gradient for the center word's embedding by subtracting the one-hot vector of the actual context word
+                from the predicted probability distribution.
+                `fp.predicted_probabilities` contains the predicted probabilities over all words in the vocabulary. 
+                    -> If fp.predicted_probabilities[i] is a small probability (close to zero like 1.70794e-18), it means the model is quite confident that class i is not the correct label.
+                    -> Floating-Point Precision: Very small probabilities close to zero (like 1.7×10e^−18) can sometimes appear as exactly zero due to precision limits, 
+                       but this is generally fine for gradient computation as the training process accounts for it.
+                `oneHot` is a one-hot vector representing the true context word in the vocabulary.
+                The result, `grad_u`, is the error signal for updating the center word's embedding in the Skip-gram model.
 
-            what is an error signal?
-            -------------------------
-            1. For the correct context word (where oneHot is 1), the gradient is (predicted_probabilities - 1), meaning the model's prediction was off by that much.
-            2. For all other words (where oneHot is 0), the gradient is simply predicted_probabilities, meaning the model incorrectly assigned a nonzero probability to these words(meaning the model's prediction was off by that much, which the whole of predicted_probability for that out of context word).
-            3. If the large gradients cause instability, consider gradient clipping. So, a gradient of −1 or even 1 in this context is manageable and not unusual.
-               When we mention "large gradients" in the context of gradient clipping, we’re generally referring to situations where values might spike significantly higher,
-               leading to instability—often in ranges much higher than 1, sometimes reaching orders of magnitude greater depending on the scale of your loss function and the learning rate.
-         */          
-        grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
+                what is an error signal?
+                -------------------------
+                1. For the correct context word (where oneHot is 1), the gradient is (predicted_probabilities - 1), meaning the model's prediction was off by that much.
+                2. For all other words (where oneHot is 0), the gradient is simply predicted_probabilities, meaning the model incorrectly assigned a nonzero probability to these words(meaning the model's prediction was off by that much, which the whole of predicted_probability for that out of context word).
+                3. If the large gradients cause instability, consider gradient clipping. So, a gradient of −1 or even 1 in this context is manageable and not unusual.
+                   When we mention "large gradients" in the context of gradient clipping, we’re generally referring to situations where values might spike significantly higher,
+                   leading to instability—often in ranges much higher than 1, sometimes reaching orders of magnitude greater depending on the scale of your loss function and the learning rate.
+             */          
+             grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
+             /*
+                Take h transpose of  hidden_layer_vector(h) and the multiply it with 
+                grad_u(gradient of intermediate_activation) and the resulting matrix will grad_W2.
+                Before transpose_h has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, 1 column) and grad_u is (1 row, len((vocab with redundency) columns)
+
+                grad_W2 has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, len((vocab with redundency) columns)
+              */
+             grad_W2 =  Numcy::dot(h_transpose, grad_u);
+
+             // Update gradients for positive samples
+             //W2 = W2 + grad_W2;                          
+        }
+        else
+        {
+             /*std::cout<< "--> Dimensions of fp.predicted_probabilities = " << fp.predicted_probabilities.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.predicted_probabilities.getShape().getNumberOfColumns() << std::endl;*/
+             // The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1 row, len(vocab columns) with redundency)
+             grad_u = Numcy::subtract(fp.predicted_probabilities, 1.0);
+             // grad_W2 has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, len((vocab with redundency) columns)
+             grad_W2 = Numcy::dot(h_transpose, grad_u);
+             // Update gradients for positive samples
+             W2 = W2 + grad_W2;
+
+             // Process negative samples
+             grad_u_negative_samples = fp.predicted_probabilities_negative_samples;
+             /*std::cout<< "--> Dimensions of fp.predicted_probabilities_negative_samples = " << fp.predicted_probabilities_negative_samples.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.predicted_probabilities_negative_samples.getShape().getNumberOfColumns() << std::endl;
+             std::cout<< "--> Dimensions of h_transpose = " << h_transpose.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h_transpose.getShape().getNumberOfColumns() << std::endl;
+             std::cout<< "--> Dimensions of grad_u_negative_samples = " << grad_u_negative_samples.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_u_negative_samples.getShape().getNumberOfColumns() << std::endl;*/
+
+                    /*
+                        Check over and over again....
+                     */
+                    //grad_W2_negative_samples = Numcy::dot(h_transpose, grad_u_negative_samples);
+             
+             /*
+                Matrix Multiplication Rules
+                ---------------------------
+                For matrix multiplication A·B, the number of columns in A must equal the number of rows in B.
+                Shape of A = (m * n), Shape of B = (n * p), Resultant Shape = (m * p).
+
+                Broadcast or Iterate Over the Negative Samples
+                ----------------------------------------------
+                Each row of `grad_u_negative_samples` corresponds to one sample and needs to be multiplied separately with `h_transpose`.
+                This code iteratively computes and applies gradients for negative samples.
+
+                Note:
+                - `h_transpose` is always of shape (m, 1).
+                - Shape of `grad_u_negative_samples`: 
+                  (negative_samples_indices.getShape().getN() * W1.getShape().getNumberOfColumns()).
+                - `negative_samples_indices.getShape().getN()` is a hyperparameter, default set to `SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES`.
+              */
+             if (negative_samples_indices.getShape().getN() != grad_u_negative_samples.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
+             {
+                 throw ala_exception("backward() Error: The number of negative samples does not match the number of gradient arrays for the negative samples. Ensure that the dimensions are consistent.");
+             }
+
+             // Iterate through each negative sample
+             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
+             {
+                 // Extract the gradient for the current negative sample
+                 Collective<T> current_sample_gradient = grad_u_negative_samples.slice(i*grad_u_negative_samples.getShape().getNumberOfColumns(), grad_u_negative_samples.getShape().getNumberOfColumns()); 
+                
+                 // Compute the gradient for W2 corresponding to this negative sample
+                 grad_W2_negative_samples = Numcy::dot(h_transpose, current_sample_gradient);
+
+                 // Update W2 once after processing a negative sample
+                 W2 = W2 + grad_W2_negative_samples;
+             }
+        }
         
         /*
         for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
@@ -1024,12 +1261,12 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
         }
         std::cout<< std::endl;
          */
-        /*
-            So what you are saying is that take he transpose of  hidden_layer_vector(h) and the multiply it with 
-            grad_u(gradient of intermediate_activation) and the resulting matrix will grad_W2 
-         */
-        Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);
-        grad_W2 =  Numcy::dot(h_transpose, grad_u);
+            /*
+                So what you are saying is that take he transpose of  hidden_layer_vector(h) and the multiply it with 
+                grad_u(gradient of intermediate_activation) and the resulting matrix will grad_W2 
+             */
+            /*Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);*/
+            /*grad_W2 =  Numcy::dot(h_transpose, grad_u);*/
 
         //std::cout<< "Dimensions of h_transpose = " << h_transpose.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h_transpose.getShape().getNumberOfColumns() << std::endl;
         //std::cout<< "Dimensions of h = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << std::endl;
@@ -1039,14 +1276,23 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
         //grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);
         /*std::cout<< "Dimensions of grad_W2 = " << grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2.getShape().getNumberOfColumns() << std::endl;*/
         
+        // Update W1 for positive samples
+        // ------------------------------
         W2_T = Numcy::transpose(W2);
 
         /*
         std::cout<< grad_u.getShape().getNumberOfColumns() << " ------- " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
         std::cout<< W2_T.getShape().getNumberOfColumns() << " ------- " << W2_T.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
          */
-                
+        /*
+            A (m, n), B = (n, p) then A*B is (m, p)
+            The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1 row, len(vocab columns) with redundency)
+            The shape of W2_T is (vocab.numberOfTokens() rows, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE columns)
+            The shape of grad_h is (1 row, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE columns)
+         */        
         grad_h = Numcy::dot(grad_u, W2_T);
+
+        /*std::cout<< "grad_h shape Columns =" << grad_h.getShape().getNumberOfColumns() << " -------  Rows = " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;*/
 
         /*
         std::cout<< grad_h.getShape().getNumberOfColumns() << " ------------------------- " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
@@ -1058,10 +1304,36 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
             Dimensions of grad_h is (1, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
             Dimensions of grad_W1 is (len(vocab) without redundency, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
          */
+        // Update center word gradient for positive sample
         for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < grad_W1.getShape().getNumberOfColumns(); i++)
         {
             grad_W1[(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i] += grad_h[i];
         }
+
+        // Update gradients for negative samples
+        if (ns)
+        {
+            // Iterate through each negative sample
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
+            {
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < grad_h.getShape().getN(); j++)
+                {
+                    grad_W1[negative_samples_indices[i]*grad_W1.getShape().getNumberOfColumns() + j] = grad_h[j];
+                }
+            }
+
+            W1 = W1 + grad_W1;
+        }
+
+        //W1 = W1 + grad_W1;
+    }
+    catch (std::bad_alloc& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+    catch (std::length_error& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
     }
     catch (ala_exception& e)
     {
@@ -1152,9 +1424,10 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
     @rs, regulirazation strength. To prevent the model over-learning from the data
     @t, data type. Used as argument to templated types and functions
     @stf, Stop Training Flag, when set to true all training loops are stoped
+    @ns, Negative sampling flag. When this flag is true, the code related to negative sampling gets activated
     @verbose, when true puts more text on screen to help debug code    
  */
-#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, rs, t, stf, verbose)\
+#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, rs, t, stf, ns, verbose)\
 {\
     cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
     /* Epoch loop */\
@@ -1182,22 +1455,25 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, CORPUS_RE
                 /* Forward Propagation: The forward function performs forward propagation and calculate the hidden layer\
                    activation and predicted probabilities using the current word pair (pair), embedding matrix (W1),\
                    output weights (W2), vocabulary (vocab), and data type (t). The result is stored in the fp variable.*/\
-                fp = forward<t>(W1, W2, negative_samples, vocab, pair);\
+                fp = forward<t>(W1, W2, negative_samples, vocab, pair, ns);\
                 /* Backward Propagation: The backward function performs backward propagation and calculate the gradients\
                    with respect to the input and output layer weights using the forward propagation results (fp), word pair (pair),\
                    embedding matrix (W1), output weights (W2), vocabulary (vocab), and data type (t).\
                    The result is stored in the bp variable. */\
-                bp = backward<t>(W1, W2, vocab, fp, pair);\
-                /* Update Weights */\
-                if (rs == 0)\
+                bp = backward<t>(W1, W2, negative_samples, vocab, fp, pair, ns);\
+                if (!ns)\
                 {\
-                    W1 -= bp.grad_weights_input_to_hidden * lr;\
-                    W2 -= bp.grad_weights_hidden_to_output * lr;\
-                }\
-                else\
-                {\
-                    W1 -= ((bp.grad_weights_input_to_hidden + (W1 * rs)) * lr);\
-                    W2 -= ((bp.grad_weights_hidden_to_output + (W2 * rs)) * lr);\
+                    /* Update Weights */\
+                    if (rs == 0)\
+                    {\
+                        W1 -= bp.grad_weights_input_to_hidden * lr;\
+                        W2 -= bp.grad_weights_hidden_to_output * lr;\
+                    }\
+                    else\
+                    {\
+                        W1 -= ((bp.grad_weights_input_to_hidden + (W1 * rs)) * lr);\
+                        W2 -= ((bp.grad_weights_hidden_to_output + (W2 * rs)) * lr);\
+                    }\
                 }\
                 /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
                    In NLL, lower values indicate better performance. */\
