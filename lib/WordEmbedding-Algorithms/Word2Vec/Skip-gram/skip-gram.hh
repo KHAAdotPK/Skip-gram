@@ -907,7 +907,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
         Positive Sample Processing (h, u, y_pred)
      */    
     Collective<T> h;
-    Collective<T> u;
+    Collective<T> u_positive_samples;
     Collective<T> y_pred;
 
     /*
@@ -920,30 +920,17 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
     try 
     {
         /*
-            TODO, use Collective::slice(),
+            --------------------------------------------
+            | For both negative and positive sampling. |
+            --------------------------------------------
              
             Extract the corresponding word embedding from the weight matrix 𝑊1.
             Instead of directly using a one-hot input vector, this implementation uses a linked list of word pairs.
             Each pair provides the index of the center word, which serves to extract the relevant embedding from 𝑊1.
             The embedding for the center word is stored in the hidden layer vector h.
-         */
-        T* h_ptr = cc_tokenizer::allocator<T>().allocate(W1.getShape().getNumberOfColumns());
-        // Loop through the columns of W1 to extract the embedding for the center word
-        for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W1.getShape().getNumberOfColumns(); i++)
-        {
-            *(h_ptr + i) = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + i];
-
-            if (_isnanf(h_ptr[i]))
-            {        
-                throw ala_exception(cc_tokenizer::String<char>("Hidden layer at ") + cc_tokenizer::String<char>("(W1 row) center word index ") +  cc_tokenizer::String<char>(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + cc_tokenizer::String<char>(" and (column index) i -> ") + cc_tokenizer::String<char>(i) + cc_tokenizer::String<char>(" -> [ ") + cc_tokenizer::String<char>("_isnanf() was true") + cc_tokenizer::String<char>("\" ]"));
-            }             
-        }
-        // The embedding vector for the center word is extracted from W1 and stored in h  
-        h = Collective<T>{h_ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), 1, NULL, NULL}};
-
-        cc_tokenizer::allocator<T>().deallocate(h_ptr, W1.getShape().getNumberOfColumns());
-        h_ptr = NULL;    
-
+         */        
+        h = W1.slice(W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE), W1.getShape().getNumberOfColumns());
+        
         // Compute the logits u using the dot product of h (center word embedding) and W2 (output layer weights)
         /*	
             Represents an intermediat gradient.	 
@@ -964,7 +951,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
          */
         /*std::cout<< "--> fp Dimensions of h =  Rows" << h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h.getShape().getNumberOfColumns() << std::endl;
         std::cout<< "--> fp Dimensions of W2 = Rows " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;*/
-        u = Numcy::dot(h, W2);  
+        u_positive_samples = Numcy::dot(h, W2);  
         /*std::cout<< "--> Dimensions of u = " << u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << u.getShape().getNumberOfColumns() << std::endl;*/
 
         if (!ns)
@@ -982,31 +969,80 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
 
                 In `Skip-gram`, this output represents the likelihood of each word being one of the context words for the given center word.
             */
-            y_pred = softmax(u);
-
-            /*cc_tokenizer::allocator<T>().deallocate(h_ptr);
-            h_ptr = NULL;*/            
+            y_pred = softmax(u_positive_samples);        
         }
-        else 
-        {
+        else if (negative_samples_indices.getShape().getN()) // Negative sampling is on
+        {   
+            T* ptr = cc_tokenizer::allocator<T>().allocate((pair->getLeft()->size() + pair->getRight()->size())*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+            
+            Collective<T> W2_positive_samples = Collective<T>{ptr, DIMENSIONS{pair->getLeft()->size() + pair->getRight()->size(), W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
+
+            cc_tokenizer::allocator<T>().deallocate(ptr, (pair->getLeft()->size() + pair->getRight()->size())*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+
+            ptr = NULL;
+
+            cc_tokenizer::string_character_traits<char>::size_type k = 0;        
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_CONTEXT_WINDOW_SIZE; i++)
+            {
+                if ((*(pair->getLeft()))[i] != INDEX_NOT_FOUND_AT_VALUE)
+                {
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        W2_positive_samples[j*(pair->getLeft()->size() + pair->getRight()->size()) + k] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE];
+                    }
+
+                    k = k + 1;
+                }
+            }
+            /*std::cout<< "--> fp Dimensions of h =  Rows" << h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "--> fp Dimensions of W2_positive_samples = Rows " << W2_positive_samples.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2_positive_samples.getShape().getNumberOfColumns() << std::endl;*/
+            u_positive_samples = Numcy::dot(h, W2_positive_samples);
+            // //////////////////////////////////////////// //
+            // loss_positive = -np.log(sigmoid(u_positive)) //
+            // //////////////////////////////////////////// //
+
+            ptr = cc_tokenizer::allocator<T>().allocate(negative_samples_indices.getShape().getN()*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+
+            Collective<T> W2_negative_samples = Collective<T>{ptr, DIMENSIONS{negative_samples_indices.getShape().getN(), W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
+
+            cc_tokenizer::allocator<T>().deallocate(ptr, negative_samples_indices.getShape().getN()*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+
+            ptr = NULL;
+            
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
+            {   
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                {
+                    W2_negative_samples[j*negative_samples_indices.getShape().getN() + i] = W2[j*W2.getShape().getNumberOfColumns() + negative_samples_indices[i]];
+                }
+
+                u_negative_samples = Numcy::dot(h, W2_negative_samples); 
+               // ////////////////////////////////////////////// // 
+               // loss_negative += -np.log(sigmoid(-u_negative)) //               
+               // ////////////////////////////////////////////// //
+            }
+            
+            
             /*
                 When ns == true (negative sampling), y_pred is computed using sigmoid(u),
                 which is correct and aligns with the binary classification objective of negative sampling.
              */
-            y_pred = Numcy::sigmoid(u);
+            y_pred = Numcy::sigmoid(u_positive_samples);
                                                                                          
             if (negative_samples_indices.getShape().getN())
             {
                 // Embedding Extraction: The embeddings for the negative samples are extracted from W1 using negative_samples_indices
-                h_ptr = cc_tokenizer::allocator<T>().allocate(W1.getShape().getNumberOfColumns()*negative_samples_indices.getShape().getN());
+                ptr = cc_tokenizer::allocator<T>().allocate(W1.getShape().getNumberOfColumns()*negative_samples_indices.getShape().getN());
                 for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
                 {
                     for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
                     {
-                        *(h_ptr + i*W1.getShape().getNumberOfColumns() + j) = W1[negative_samples_indices[i]*W1.getShape().getNumberOfColumns() + j];
+                        *(ptr + i*W1.getShape().getNumberOfColumns() + j) = W1[negative_samples_indices[i]*W1.getShape().getNumberOfColumns() + j];
                     }
                 }
-                h_negative_samples = Collective<T>{h_ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), negative_samples_indices.getShape().getN(), NULL, NULL}};
+                h_negative_samples = Collective<T>{ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), negative_samples_indices.getShape().getN(), NULL, NULL}};
+                cc_tokenizer::allocator<T>().deallocate(ptr, W1.getShape().getNumberOfColumns()*negative_samples_indices.getShape().getN());
+                ptr = NULL;
 
                 // Dot Product: The logits u_negative_samples are computed by performing a dot product between the embeddings of negative samples (h_negative_samples) and W2
                 u_negative_samples = Numcy::dot(h_negative_samples, W2);
@@ -1037,6 +1073,10 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
                 }
             }
         }
+        else
+        {
+            throw ala_exception("The array containing indices of negative samples is empty.");
+        }
     }
     catch (std::length_error& e)
     {        
@@ -1048,11 +1088,10 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
     }
     catch (ala_exception& e)
     {        
-        throw ala_exception(cc_tokenizer::String<char>("forward() Error: ") + cc_tokenizer::String<char>(e.what()));
+        throw ala_exception(cc_tokenizer::String<char>("forward() -> ") + cc_tokenizer::String<char>(e.what()));
     }
-                
-    //return forward_propogation<T>{h, y_pred, u};
-    return forward_propogation<T>(h, y_pred, u, h_negative_samples, y_pred_negative_samples, u_negative_samples);
+                   
+    return forward_propogation<T>(h, y_pred, u_positive_samples, h_negative_samples, y_pred_negative_samples, u_negative_samples);
 }
 
 template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
