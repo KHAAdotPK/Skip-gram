@@ -25,22 +25,27 @@ struct forward_propogation
     forward_propogation(void) : hidden_layer_vector(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}), 
                                 predicted_probabilities(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}), 
                                 intermediate_activation(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}), 
-                                hidden_layer_vector_negative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}) ,
+                                /*hidden_layer_vector_negative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}) ,
                                 predicted_probabilities_negative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}),
-                                intermediate_activation_neative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}})
+                                intermediate_activation_neative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}),*/
+                                positive_samples_loss(0),
+                                negative_samples_loss(0)
     {        
     }
 
-    forward_propogation<E>(Collective<E>& h, Collective<E>& y_pred, Collective<E>& u, Collective<E>& h_ns, Collective<E>& y_pred_ns, Collective<E>& u_ns) throw (ala_exception)    
+    forward_propogation<E>(Collective<E>& h, Collective<E>& y_pred, Collective<E>& u, /*Collective<E>& h_ns, Collective<E>& y_pred_ns, Collective<E>& u_ns,*/ E psl, E nsl) throw (ala_exception)    
     {
         try
         {        
             hidden_layer_vector = h;
             predicted_probabilities = y_pred;
             intermediate_activation = u;
-            hidden_layer_vector_negative_samples = h_ns;
+            /*hidden_layer_vector_negative_samples = h_ns;
             predicted_probabilities_negative_samples = y_pred_ns;
-            intermediate_activation_neative_samples = u_ns;            
+            intermediate_activation_neative_samples = u_ns;*/
+
+            positive_samples_loss = psl;
+            negative_samples_loss = nsl;
         }
         catch (ala_exception& e)
         {
@@ -134,9 +139,12 @@ struct forward_propogation
             intermediate_activation = other.intermediate_activation;
             predicted_probabilities = other.predicted_probabilities;
 
-            hidden_layer_vector_negative_samples = other.hidden_layer_vector_negative_samples;
+            /*hidden_layer_vector_negative_samples = other.hidden_layer_vector_negative_samples;
             intermediate_activation_neative_samples = other.intermediate_activation_neative_samples;
-            predicted_probabilities_negative_samples = other.predicted_probabilities_negative_samples;
+            predicted_probabilities_negative_samples = other.predicted_probabilities_negative_samples;*/
+
+            positive_samples_loss = other.positive_samples_loss;
+            negative_samples_loss = other.negative_samples_loss;
         }
         catch (ala_exception& e)
         {
@@ -243,7 +251,7 @@ struct forward_propogation
         }
         intermediate_activation = Collective<E>{ptr, other.intermediate_activation.getShape().copy()};
         
-        try 
+        /*try 
         {
             ptr = cc_tokenizer::allocator<E>().allocate(other.hidden_layer_vector_negative_samples.getShape().getN());
             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < other.hidden_layer_vector_negative_samples.getShape().getN(); i++)
@@ -307,7 +315,7 @@ struct forward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        intermediate_activation_neative_samples = Collective<E>{ptr, other.intermediate_activation_neative_samples.getShape().copy()};
+        intermediate_activation_neative_samples = Collective<E>{ptr, other.intermediate_activation_neative_samples.getShape().copy()};*/
         
         return *this;
     }
@@ -436,11 +444,14 @@ struct forward_propogation
             Negative samples....
         */
         /* h_negative_samples */
-        Collective<E> hidden_layer_vector_negative_samples;
+        //Collective<E> hidden_layer_vector_negative_samples;
         /* y_pred_negative_samples */
-        Collective<E> predicted_probabilities_negative_samples;
+        //Collective<E> predicted_probabilities_negative_samples;
         /* u_negative_samples */
-        Collective<E> intermediate_activation_neative_samples;         
+        //Collective<E> intermediate_activation_neative_samples;
+
+        E positive_samples_loss;
+        E negative_samples_loss;         
 };
 
 /*
@@ -903,19 +914,11 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
         throw ala_exception("forward() Error: Index of center word is out of bounds of W1.");
     }
 
-    /*
-        Positive Sample Processing (h, u, y_pred)
-     */    
-    Collective<T> h;
-    Collective<T> u_positive_samples;
-    Collective<T> y_pred;
-
-    /*
-        Negative Sample Processing (h_negative_samples, u_negative_samples, y_pred_negative_samples)
-     */
-    Collective<T> h_negative_samples;
-    Collective<T> u_negative_samples;
-    Collective<T> y_pred_negative_samples;
+    Collective<T> h;    
+    Collective<T> y_pred;    
+    Collective<T> u;
+        
+    T positive_samples_loss = 0, negative_samples_loss = 0;
             
     try 
     {
@@ -951,11 +954,12 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
          */
         /*std::cout<< "--> fp Dimensions of h =  Rows" << h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h.getShape().getNumberOfColumns() << std::endl;
         std::cout<< "--> fp Dimensions of W2 = Rows " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;*/
-        u_positive_samples = Numcy::dot(h, W2);  
+                //u_positive_samples = Numcy::dot(h, W2);  
         /*std::cout<< "--> Dimensions of u = " << u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << u.getShape().getNumberOfColumns() << std::endl;*/
 
         if (!ns)
         {
+            u = Numcy::dot(h, W2); 
             /*
                 When ns == false (no negative sampling), y_pred is computed using softmax(u),
                 which is correct for the traditional skip-gram model without negative sampling.
@@ -969,22 +973,30 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
 
                 In `Skip-gram`, this output represents the likelihood of each word being one of the context words for the given center word.
             */
-            y_pred = softmax(u_positive_samples);        
+            y_pred = softmax(u);        
         }
-        else if (negative_samples_indices.getShape().getN()) // Negative sampling is on
+        else if (negative_samples_indices.getShape().getN()) 
         {   
-            T* ptr = cc_tokenizer::allocator<T>().allocate((pair->getLeft()->size() + pair->getRight()->size())*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
-            
-            Collective<T> W2_positive_samples = Collective<T>{ptr, DIMENSIONS{pair->getLeft()->size() + pair->getRight()->size(), W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
+            T positive_negative_epoch_loss = 0;
 
-            cc_tokenizer::allocator<T>().deallocate(ptr, (pair->getLeft()->size() + pair->getRight()->size())*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+            T* ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+
+            //T* ptr = cc_tokenizer::allocator<T>().allocate((pair->getLeft()->size() + pair->getRight()->size())*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+
+            Collective<T> W2_positive_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
+            
+            //Collective<T> W2_positive_samples = Collective<T>{ptr, DIMENSIONS{pair->getLeft()->size() + pair->getRight()->size(), W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
+
+            cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+
+            //cc_tokenizer::allocator<T>().deallocate(ptr, (pair->getLeft()->size() + pair->getRight()->size())*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
 
             ptr = NULL;
 
-            cc_tokenizer::string_character_traits<char>::size_type k = 0;        
+            //cc_tokenizer::string_character_traits<char>::size_type k = 0;        
             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_CONTEXT_WINDOW_SIZE; i++)
             {
-                if ((*(pair->getLeft()))[i] != INDEX_NOT_FOUND_AT_VALUE)
+                /*if ((*(pair->getLeft()))[i] != INDEX_NOT_FOUND_AT_VALUE)
                 {
                     for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
                     {
@@ -992,86 +1004,64 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
                     }
 
                     k = k + 1;
+                }*/
+
+                Collective<T> u_positive_sample;
+
+                if ((*(pair->getLeft()))[i] != INDEX_NOT_FOUND_AT_VALUE)
+                {
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        W2_positive_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE];
+                    }
+
+                    u_positive_sample = Numcy::dot(h, W2_positive_sample);
+                    
+                    positive_samples_loss = positive_samples_loss + std::log(Numcy::sigmoid(u_positive_sample)[0])*(-1);
+                }
+
+                if ((*(pair->getRight()))[i] != INDEX_NOT_FOUND_AT_VALUE)
+                {
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        W2_positive_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE];                        
+                    }
+
+                    u_positive_sample = Numcy::dot(h, W2_positive_sample); 
+                    
+                    positive_samples_loss = positive_samples_loss + std::log(Numcy::sigmoid(u_positive_sample)[0])*(-1);
                 }
             }
             /*std::cout<< "--> fp Dimensions of h =  Rows" << h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h.getShape().getNumberOfColumns() << std::endl;
             std::cout<< "--> fp Dimensions of W2_positive_samples = Rows " << W2_positive_samples.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2_positive_samples.getShape().getNumberOfColumns() << std::endl;*/
-            u_positive_samples = Numcy::dot(h, W2_positive_samples);
-            // //////////////////////////////////////////// //
-            // loss_positive = -np.log(sigmoid(u_positive)) //
-            // //////////////////////////////////////////// //
-
-            ptr = cc_tokenizer::allocator<T>().allocate(negative_samples_indices.getShape().getN()*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
-
-            Collective<T> W2_negative_samples = Collective<T>{ptr, DIMENSIONS{negative_samples_indices.getShape().getN(), W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
-
-            cc_tokenizer::allocator<T>().deallocate(ptr, negative_samples_indices.getShape().getN()*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
-
-            ptr = NULL;
+            //u_positive_samples = Numcy::dot(h, W2_positive_samples);
             
+            ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
+            Collective<T> W2_negative_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};                        
+            cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
+            ptr = NULL;
+
+            //Collective<T> u_negative_sample;
+
             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
-            {   
+            {
                 for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
                 {
-                    W2_negative_samples[j*negative_samples_indices.getShape().getN() + i] = W2[j*W2.getShape().getNumberOfColumns() + negative_samples_indices[i]];
+                    W2_negative_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + negative_samples_indices[i]];
                 }
 
-                u_negative_samples = Numcy::dot(h, W2_negative_samples); 
-               // ////////////////////////////////////////////// // 
-               // loss_negative += -np.log(sigmoid(-u_negative)) //               
-               // ////////////////////////////////////////////// //
+                Collective<T> u_negative_sample = Numcy::dot(h, W2_negative_sample);
+
+                //std::cout<< "----> " << u_negative_sample[0] << std::endl;
+                u_negative_sample = u_negative_sample*((T)-1);
+
+                negative_samples_loss = negative_samples_loss + std::log(Numcy::sigmoid(u_negative_sample)[0])*(-1);
+                
+                //std::cout<< "--> fp Dimensions of u_negative_sample =  Rows" << u_negative_sample.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << u_negative_sample.getShape().getNumberOfColumns() << std::endl;
+                //std::cout<< "----> " << u_negative_sample[0] << std::endl;
             }
-            
-            
-            /*
-                When ns == true (negative sampling), y_pred is computed using sigmoid(u),
-                which is correct and aligns with the binary classification objective of negative sampling.
-             */
-            y_pred = Numcy::sigmoid(u_positive_samples);
-                                                                                         
-            if (negative_samples_indices.getShape().getN())
-            {
-                // Embedding Extraction: The embeddings for the negative samples are extracted from W1 using negative_samples_indices
-                ptr = cc_tokenizer::allocator<T>().allocate(W1.getShape().getNumberOfColumns()*negative_samples_indices.getShape().getN());
-                for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
-                {
-                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
-                    {
-                        *(ptr + i*W1.getShape().getNumberOfColumns() + j) = W1[negative_samples_indices[i]*W1.getShape().getNumberOfColumns() + j];
-                    }
-                }
-                h_negative_samples = Collective<T>{ptr, DIMENSIONS{W1.getShape().getNumberOfColumns(), negative_samples_indices.getShape().getN(), NULL, NULL}};
-                cc_tokenizer::allocator<T>().deallocate(ptr, W1.getShape().getNumberOfColumns()*negative_samples_indices.getShape().getN());
-                ptr = NULL;
 
-                // Dot Product: The logits u_negative_samples are computed by performing a dot product between the embeddings of negative samples (h_negative_samples) and W2
-                u_negative_samples = Numcy::dot(h_negative_samples, W2);
-
-                /*
-                    T* ptr = cc_tokenizer::allocator<T>().allocate(3);
-                    ptr[0] = 0.0;
-                    ptr[1] = 1.0;
-                    ptr[2] = -1.0;
-                    Collective<T> input = Collective<T>{ptr, DIMENSIONS{3, 1, NULL, NULL}};
-                 */
-                //Collective<T> result = Numcy::sigmoid<T>(u_negative_samples /*input*/);
-
-                /*
-                for (int i = 0; i < result.getShape().getN(); i++)
-                {
-                    std::cout<< result[i] << ", ";
-                }            
-                std::cout<< std::endl;
-                 */
-                // Prediction (y_pred_negative_samples): Applied the sigmoid function to compute probabilities for negative samples. 
-                y_pred_negative_samples = Numcy::sigmoid(u_negative_samples);
-                // Post-processing of y_pred_negative_samples to compute 1 - sigmoid(u_negative_samples).
-                // It will make it align with the binary cross-entropy loss for negative samples log(1 - sigmoid(u_negative_samples))
-                for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < y_pred_negative_samples.getShape().getN(); i++)
-                {
-                    y_pred_negative_samples[i] = (1 - y_pred_negative_samples[i]);
-                }
-            }
+            positive_negative_epoch_loss = positive_negative_epoch_loss + (positive_samples_loss + negative_samples_loss);            
         }
         else
         {
@@ -1091,7 +1081,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
         throw ala_exception(cc_tokenizer::String<char>("forward() -> ") + cc_tokenizer::String<char>(e.what()));
     }
                    
-    return forward_propogation<T>(h, y_pred, u_positive_samples, h_negative_samples, y_pred_negative_samples, u_negative_samples);
+    return forward_propogation<T>(h, y_pred, u /*u_positive_samples*/, /*h_negative_samples, y_pred_negative_samples, u_negative_samples,*/ positive_samples_loss, negative_samples_loss);
 }
 
 template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
@@ -1224,59 +1214,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
         }
         else
         {
-             /*std::cout<< "--> Dimensions of fp.predicted_probabilities = " << fp.predicted_probabilities.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.predicted_probabilities.getShape().getNumberOfColumns() << std::endl;*/
-             // The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1 row, len(vocab columns) with redundency)
-             grad_u = Numcy::subtract(fp.predicted_probabilities, 1.0);
-             // grad_W2 has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, len((vocab with redundency) columns)
-             grad_W2 = Numcy::dot(h_transpose, grad_u);
-             // Update gradients for positive samples
-             W2 = W2 + grad_W2;
-
-             // Process negative samples
-             grad_u_negative_samples = fp.predicted_probabilities_negative_samples;
-             /*std::cout<< "--> Dimensions of fp.predicted_probabilities_negative_samples = " << fp.predicted_probabilities_negative_samples.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.predicted_probabilities_negative_samples.getShape().getNumberOfColumns() << std::endl;
-             std::cout<< "--> Dimensions of h_transpose = " << h_transpose.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h_transpose.getShape().getNumberOfColumns() << std::endl;
-             std::cout<< "--> Dimensions of grad_u_negative_samples = " << grad_u_negative_samples.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_u_negative_samples.getShape().getNumberOfColumns() << std::endl;*/
-
-                    /*
-                        Check over and over again....
-                     */
-                    //grad_W2_negative_samples = Numcy::dot(h_transpose, grad_u_negative_samples);
              
-             /*
-                Matrix Multiplication Rules
-                ---------------------------
-                For matrix multiplication A·B, the number of columns in A must equal the number of rows in B.
-                Shape of A = (m * n), Shape of B = (n * p), Resultant Shape = (m * p).
-
-                Broadcast or Iterate Over the Negative Samples
-                ----------------------------------------------
-                Each row of `grad_u_negative_samples` corresponds to one sample and needs to be multiplied separately with `h_transpose`.
-                This code iteratively computes and applies gradients for negative samples.
-
-                Note:
-                - `h_transpose` is always of shape (m, 1).
-                - Shape of `grad_u_negative_samples`: 
-                  (negative_samples_indices.getShape().getN() * W1.getShape().getNumberOfColumns()).
-                - `negative_samples_indices.getShape().getN()` is a hyperparameter, default set to `SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES`.
-              */
-             if (negative_samples_indices.getShape().getN() != grad_u_negative_samples.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
-             {
-                 throw ala_exception("backward() Error: The number of negative samples does not match the number of gradient arrays for the negative samples. Ensure that the dimensions are consistent.");
-             }
-
-             // Iterate through each negative sample
-             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
-             {
-                 // Extract the gradient for the current negative sample
-                 Collective<T> current_sample_gradient = grad_u_negative_samples.slice(i*grad_u_negative_samples.getShape().getNumberOfColumns(), grad_u_negative_samples.getShape().getNumberOfColumns()); 
-                
-                 // Compute the gradient for W2 corresponding to this negative sample
-                 grad_W2_negative_samples = Numcy::dot(h_transpose, current_sample_gradient);
-
-                 // Update W2 once after processing a negative sample
-                 W2 = W2 + grad_W2_negative_samples;
-             }
         }
         
         /*
@@ -1347,24 +1285,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
         for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < grad_W1.getShape().getNumberOfColumns(); i++)
         {
             grad_W1[(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i] += grad_h[i];
-        }
-
-        // Update gradients for negative samples
-        if (ns)
-        {
-            // Iterate through each negative sample
-            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
-            {
-                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < grad_h.getShape().getN(); j++)
-                {
-                    grad_W1[negative_samples_indices[i]*grad_W1.getShape().getNumberOfColumns() + j] = grad_h[j];
-                }
-            }
-
-            W1 = W1 + grad_W1;
-        }
-
-        //W1 = W1 + grad_W1;
+        }       
     }
     catch (std::bad_alloc& e)
     {
