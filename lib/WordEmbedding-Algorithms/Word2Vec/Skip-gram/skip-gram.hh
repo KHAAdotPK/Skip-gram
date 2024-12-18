@@ -1296,7 +1296,8 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             }
         }
         else
-        {
+        {            
+            // Backpropagation for positive sample
             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_CONTEXT_WINDOW_SIZE; i++)
             {
                 T* ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
@@ -1306,6 +1307,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
                 Collective<T> u_positive_sample;
                 Collective<T> grad_u_positive_sample;
+                Collective<T> grad_W2_positive_sample;
 
                 if ((*(pair->getLeft()))[i] != INDEX_NOT_FOUND_AT_VALUE)
                 {
@@ -1318,7 +1320,28 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
                     grad_u_positive_sample = Numcy::sigmoid(u_positive_sample) - 1;
                     
+                    grad_W2_positive_sample = Numcy::outer(fp.hidden_layer_vector, grad_u_positive_sample);
+
+                    //std::cout<< "Dimensions of grad_W2_positive_sample (ROWS) = " << grad_W2_positive_sample.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2_positive_sample.getShape().getNumberOfColumns() << std::endl;
+                    //std::cout<< "Dimensions of grad_u = " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_u.getShape().getNumberOfColumns() << std::endl;
+                    
                     //positive_samples_loss = positive_samples_loss + std::log(Numcy::sigmoid(u_positive_sample)[0])*(-1);
+
+                    //W2[:, context_word_index] -= learning_rate * grad_W2_positive[:, 0]
+
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] - 1*grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];
+                    }
+
+                    Collective<T> product = Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector);
+
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                    {
+                        W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - 1*product[j];
+                    }
+
+                    //std::cout<< "Dimensions of Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector) ROWS = " << Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector).getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector).getShape().getNumberOfColumns() << std::endl;                    
                 }
 
                 if ((*(pair->getRight()))[i] != INDEX_NOT_FOUND_AT_VALUE)
@@ -1331,10 +1354,59 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                     u_positive_sample = Numcy::dot(fp.hidden_layer_vector, W2_positive_sample); 
 
                     grad_u_positive_sample = Numcy::sigmoid(u_positive_sample) - 1;
+
+                    grad_W2_positive_sample = Numcy::outer(fp.hidden_layer_vector, grad_u_positive_sample);
+
+                    //std::cout<< "--Dimensions of grad_W2_positive_sample (ROWS) = " << grad_W2_positive_sample.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2_positive_sample.getShape().getNumberOfColumns() << std::endl;
                     
                     //positive_samples_loss = positive_samples_loss + std::log(Numcy::sigmoid(u_positive_sample)[0])*(-1);
+
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] - 1*grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];
+                    }
+
+                    Collective<T> product = Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector);
+
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                    {
+                        W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - 1*product[j];
+                    }
                 }
-            }                       
+            }
+            // Backpropagation for negative samples
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
+            {                
+                T* ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
+                Collective<T> W2_negative_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};                        
+                cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
+                ptr = NULL;
+
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                {
+                    W2_negative_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + negative_samples_indices[i]];
+                } 
+
+                Collective<T> u_negative_sample = Numcy::dot(fp.hidden_layer_vector, W2_negative_sample); 
+
+                u_negative_sample = u_negative_sample*((T)-1);
+
+                Collective<T> grad_u_negative_sample = Numcy::sigmoid(u_negative_sample) - 1;
+
+                Collective<T> grad_W2_negative_sample = Numcy::outer(fp.hidden_layer_vector, grad_u_negative_sample);
+
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                {
+                    W2[j*W2.getShape().getNumberOfColumns() + i] = W2[j*W2.getShape().getNumberOfColumns() + i] - 1*grad_W2_negative_sample[j*grad_W2_negative_sample.getShape().getNumberOfColumns() + 0];
+                }
+
+                Collective<T> product = Numcy::dot(grad_u_negative_sample, fp.hidden_layer_vector);
+
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                {
+                    W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - 1*product[j];
+                }
+            }
         }
     }
     catch (std::bad_alloc& e)
