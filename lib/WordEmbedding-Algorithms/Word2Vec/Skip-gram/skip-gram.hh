@@ -29,11 +29,12 @@ struct forward_propogation
                                 predicted_probabilities_negative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}),
                                 intermediate_activation_neative_samples(Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}}),*/
                                 positive_samples_loss(0),
-                                negative_samples_loss(0)
+                                negative_samples_loss(0),
+                                positive_negative_epoch_loss(0)
     {        
     }
 
-    forward_propogation<E>(Collective<E>& h, Collective<E>& y_pred, Collective<E>& u, /*Collective<E>& h_ns, Collective<E>& y_pred_ns, Collective<E>& u_ns,*/ E psl, E nsl) throw (ala_exception)    
+    forward_propogation<E>(Collective<E>& h, Collective<E>& y_pred, Collective<E>& u, /*Collective<E>& h_ns, Collective<E>& y_pred_ns, Collective<E>& u_ns,*/ E psl, E nsl, E pnel) throw (ala_exception)    
     {
         try
         {        
@@ -46,6 +47,7 @@ struct forward_propogation
 
             positive_samples_loss = psl;
             negative_samples_loss = nsl;
+            positive_negative_epoch_loss = pnel;
         }
         catch (ala_exception& e)
         {
@@ -145,6 +147,7 @@ struct forward_propogation
 
             positive_samples_loss = other.positive_samples_loss;
             negative_samples_loss = other.negative_samples_loss;
+            positive_negative_epoch_loss = other.positive_negative_epoch_loss;
         }
         catch (ala_exception& e)
         {
@@ -316,6 +319,10 @@ struct forward_propogation
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
         intermediate_activation_neative_samples = Collective<E>{ptr, other.intermediate_activation_neative_samples.getShape().copy()};*/
+
+        positive_samples_loss = other.positive_samples_loss;
+        negative_samples_loss = other.negative_samples_loss;
+        positive_negative_epoch_loss = other.positive_negative_epoch_loss;
         
         return *this;
     }
@@ -451,7 +458,8 @@ struct forward_propogation
         //Collective<E> intermediate_activation_neative_samples;
 
         E positive_samples_loss;
-        E negative_samples_loss;         
+        E negative_samples_loss;
+        E positive_negative_epoch_loss;         
 };
 
 /*
@@ -918,7 +926,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
     Collective<T> y_pred;    
     Collective<T> u;
         
-    T positive_samples_loss = 0, negative_samples_loss = 0;
+    T positive_samples_loss = 0, negative_samples_loss = 0, positive_negative_epoch_loss = 0;
             
     try 
     {
@@ -977,7 +985,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
         }
         else if (negative_samples_indices.getShape().getN()) 
         {   
-            T positive_negative_epoch_loss = 0;
+            //T positive_negative_epoch_loss = 0;
 
             T* ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
 
@@ -1061,7 +1069,9 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
                 //std::cout<< "----> " << u_negative_sample[0] << std::endl;
             }
 
-            positive_negative_epoch_loss = positive_negative_epoch_loss + (positive_samples_loss + negative_samples_loss);            
+            positive_negative_epoch_loss = positive_negative_epoch_loss + (positive_samples_loss + negative_samples_loss);
+
+            //std::cout << "=-----------------------------------------> " << positive_negative_epoch_loss << std::endl;
         }
         else
         {
@@ -1081,7 +1091,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
         throw ala_exception(cc_tokenizer::String<char>("forward() -> ") + cc_tokenizer::String<char>(e.what()));
     }
                    
-    return forward_propogation<T>(h, y_pred, u /*u_positive_samples*/, /*h_negative_samples, y_pred_negative_samples, u_negative_samples,*/ positive_samples_loss, negative_samples_loss);
+    return forward_propogation<T>(h, y_pred, u, positive_samples_loss, negative_samples_loss, positive_negative_epoch_loss);
 }
 
 template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
@@ -1120,7 +1130,10 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
     Collective<T> grad_u_negative_samples;
     Collective<T> grad_W2_negative_samples;
+
+    /* Neative sampling */
     
+
     try 
     {
         //std::cout<< "-> Columns = " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << ", Rows = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
@@ -1211,81 +1224,118 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
              // Update gradients for positive samples
              //W2 = W2 + grad_W2;                          
-        }
-        else
-        {
-             
-        }
         
-        /*
-        for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
-        {                        
-            //std::cout<< grad_u[i] << ", ";
-
-            if (_isnanf(grad_u[i]))
-            {        
-                throw ala_exception(cc_tokenizer::String<char>("backward() Error: gradient for the center word ") + cc_tokenizer::String<char>("(grad_u) at index ") +  cc_tokenizer::String<char>(i) + cc_tokenizer::String<char>("_isnanf() was true"));
-            }
-            else if (grad_u[i] == 0)
-            {
-                throw ala_exception("backward() Error: gradient for the center word is zero in grad_u"); 
-            }
-
-            if (oneHot[i] == 1)
-            {
-                std::cout << "y_pred[i] = " << fp.predicted_probabilities[i] << "  <<--->>  " <<  fp.predicted_probabilities[i] - oneHot[i] << " , " << grad_u[i] << " --- ";
-            }  
-        }
-        std::cout<< std::endl;
-         */
+                
             /*
+                for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
+                {                        
+                    //std::cout<< grad_u[i] << ", ";
+
+                    if (_isnanf(grad_u[i]))
+                    {        
+                        throw ala_exception(cc_tokenizer::String<char>("backward() Error: gradient for the center word ") + cc_tokenizer::String<char>("(grad_u) at index ") +  cc_tokenizer::String<char>(i) + cc_tokenizer::String<char>("_isnanf() was true"));
+                    }
+                    else if (grad_u[i] == 0)
+                    {
+                        throw ala_exception("backward() Error: gradient for the center word is zero in grad_u"); 
+                    }
+
+                    if (oneHot[i] == 1)
+                    {
+                        std::cout << "y_pred[i] = " << fp.predicted_probabilities[i] << "  <<--->>  " <<  fp.predicted_probabilities[i] - oneHot[i] << " , " << grad_u[i] << " --- ";
+                    }  
+                }
+                std::cout<< std::endl;
+             */
+             /*
                 So what you are saying is that take he transpose of  hidden_layer_vector(h) and the multiply it with 
                 grad_u(gradient of intermediate_activation) and the resulting matrix will grad_W2 
              */
             /*Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);*/
             /*grad_W2 =  Numcy::dot(h_transpose, grad_u);*/
 
-        //std::cout<< "Dimensions of h_transpose = " << h_transpose.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h_transpose.getShape().getNumberOfColumns() << std::endl;
-        //std::cout<< "Dimensions of h = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << std::endl;
+            //std::cout<< "Dimensions of h_transpose = " << h_transpose.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h_transpose.getShape().getNumberOfColumns() << std::endl;
+            //std::cout<< "Dimensions of h = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << std::endl;
 
-        /*std::cout<< "Dimensions of fp.intermediate_activation a.k.a u = " << fp.intermediate_activation.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.intermediate_activation.getShape().getNumberOfColumns() << std::endl;
-        std::cout<< "Dimensions of grad_u = " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_u.getShape().getNumberOfColumns() << std::endl;*/
-        //grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);
-        /*std::cout<< "Dimensions of grad_W2 = " << grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2.getShape().getNumberOfColumns() << std::endl;*/
+            /*std::cout<< "Dimensions of fp.intermediate_activation a.k.a u = " << fp.intermediate_activation.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.intermediate_activation.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "Dimensions of grad_u = " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_u.getShape().getNumberOfColumns() << std::endl;*/
+            //grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);
+            /*std::cout<< "Dimensions of grad_W2 = " << grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2.getShape().getNumberOfColumns() << std::endl;*/
         
-        // Update W1 for positive samples
-        // ------------------------------
-        W2_T = Numcy::transpose(W2);
+            // Update W1 for positive samples
+            // ------------------------------
+            W2_T = Numcy::transpose(W2);
 
-        /*
-        std::cout<< grad_u.getShape().getNumberOfColumns() << " ------- " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
-        std::cout<< W2_T.getShape().getNumberOfColumns() << " ------- " << W2_T.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
-         */
-        /*
-            A (m, n), B = (n, p) then A*B is (m, p)
-            The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1 row, len(vocab columns) with redundency)
-            The shape of W2_T is (vocab.numberOfTokens() rows, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE columns)
-            The shape of grad_h is (1 row, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE columns)
-         */        
-        grad_h = Numcy::dot(grad_u, W2_T);
+            /*
+                std::cout<< grad_u.getShape().getNumberOfColumns() << " ------- " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+                std::cout<< W2_T.getShape().getNumberOfColumns() << " ------- " << W2_T.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+            */
+            /*
+                A (m, n), B = (n, p) then A*B is (m, p)
+                The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1 row, len(vocab columns) with redundency)
+                The shape of W2_T is (vocab.numberOfTokens() rows, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE columns)
+                The shape of grad_h is (1 row, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE columns)
+            */        
+            grad_h = Numcy::dot(grad_u, W2_T);
 
-        /*std::cout<< "grad_h shape Columns =" << grad_h.getShape().getNumberOfColumns() << " -------  Rows = " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;*/
+            /*std::cout<< "grad_h shape Columns =" << grad_h.getShape().getNumberOfColumns() << " -------  Rows = " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;*/
 
-        /*
-        std::cout<< grad_h.getShape().getNumberOfColumns() << " ------------------------- " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
-         */
+            /*
+                std::cout<< grad_h.getShape().getNumberOfColumns() << " ------------------------- " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+            */
+            grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfTokens() /*vocab.numberOfUniqueTokens()*/, NULL, NULL});
 
-        grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfTokens() /*vocab.numberOfUniqueTokens()*/, NULL, NULL});
-
-        /*
-            Dimensions of grad_h is (1, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
-            Dimensions of grad_W1 is (len(vocab) without redundency, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
-         */
-        // Update center word gradient for positive sample
-        for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < grad_W1.getShape().getNumberOfColumns(); i++)
+            /*
+                Dimensions of grad_h is (1, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+                Dimensions of grad_W1 is (len(vocab) without redundency, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+            */
+            // Update center word gradient for positive sample
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < grad_W1.getShape().getNumberOfColumns(); i++)
+            {
+                grad_W1[(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i] += grad_h[i];
+            }
+        }
+        else
         {
-            grad_W1[(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i] += grad_h[i];
-        }       
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_CONTEXT_WINDOW_SIZE; i++)
+            {
+                T* ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+                Collective<T> W2_positive_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};                        
+                cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
+                ptr = NULL;
+
+                Collective<T> u_positive_sample;
+                Collective<T> grad_u_positive_sample;
+
+                if ((*(pair->getLeft()))[i] != INDEX_NOT_FOUND_AT_VALUE)
+                {
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        W2_positive_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE];
+                    }
+
+                    u_positive_sample = Numcy::dot(fp.hidden_layer_vector, W2_positive_sample);
+
+                    grad_u_positive_sample = Numcy::sigmoid(u_positive_sample) - 1;
+                    
+                    //positive_samples_loss = positive_samples_loss + std::log(Numcy::sigmoid(u_positive_sample)[0])*(-1);
+                }
+
+                if ((*(pair->getRight()))[i] != INDEX_NOT_FOUND_AT_VALUE)
+                {
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        W2_positive_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE];                        
+                    }
+
+                    u_positive_sample = Numcy::dot(fp.hidden_layer_vector, W2_positive_sample); 
+
+                    grad_u_positive_sample = Numcy::sigmoid(u_positive_sample) - 1;
+                    
+                    //positive_samples_loss = positive_samples_loss + std::log(Numcy::sigmoid(u_positive_sample)[0])*(-1);
+                }
+            }                       
+        }
     }
     catch (std::bad_alloc& e)
     {
@@ -1400,6 +1450,8 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
         {\
             std::cout<< "Epoch# " << i << " of " << epoch << " epochs." << std::endl;\
         }\
+        forward_propogation<t> fp;\
+        backward_propogation<t> bp;\
         /* Shuffle Word Pairs: Shuffles the training data (word pairs) before each epoch to avoid biases in weight updates */\
         Numcy::Random::shuffle<PAIRS>(pairs, pairs.get_number_of_word_pairs());\
         /* Iterates through each word pair in the training data  */\
@@ -1407,8 +1459,8 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
         {\
             /* Get Current Word Pair: We've a pair, a pair is LEFT_CONTEXT_WORD/S CENTER_WORD and RIGHT_CONTEXT_WORD/S */\
             WORDPAIRS_PTR pair = pairs.get_current_word_pair();\
-            forward_propogation<t> fp;\
-            backward_propogation<t> bp;\
+            /*forward_propogation<t> fp;*/\
+            /*backward_propogation<t> bp;*/\
             try\
             {\
                 Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples = generateNegativeSamples(pair, vocab);\
@@ -1416,6 +1468,10 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                    activation and predicted probabilities using the current word pair (pair), embedding matrix (W1),\
                    output weights (W2), vocabulary (vocab), and data type (t). The result is stored in the fp variable.*/\
                 fp = forward<t>(W1, W2, negative_samples, vocab, pair, ns);\
+                if(ns && verbose)\
+                {\
+                    std::cout<< "This pair positive samples loss = " << fp.positive_samples_loss << ", and Negative samples loss = " << fp.negative_samples_loss << std::endl;\
+                }\
                 /* Backward Propagation: The backward function performs backward propagation and calculate the gradients\
                    with respect to the input and output layer weights using the forward propagation results (fp), word pair (pair),\
                    embedding matrix (W1), output weights (W2), vocabulary (vocab), and data type (t).\
@@ -1434,11 +1490,11 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                         W1 -= ((bp.grad_weights_input_to_hidden + (W1 * rs)) * lr);\
                         W2 -= ((bp.grad_weights_hidden_to_output + (W2 * rs)) * lr);\
                     }\
+                    /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
+                       In NLL, lower values indicate better performance. */\
+                    el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
+                    /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
                 }\
-                /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
-                   In NLL, lower values indicate better performance. */\
-                el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
-                /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
             }\
             catch (ala_exception& e)\
             {\
@@ -1448,22 +1504,30 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
         }\
         if (!stf)\
         {\
-            if (el_previous == 0 || el < el_previous)\
+            if (!ns)\
             {\
-                std::cout<< "epoch_loss = (" << el << "), Average epoch_loss = " << el/pairs.get_number_of_word_pairs() << std::endl;\
-                el_previous = el;\
-            }\
-            else\
-            {\
-                std::cout<< "Average epoch_loss is increasing... from " << el_previous/pairs.get_number_of_word_pairs() << " to " << el/pairs.get_number_of_word_pairs() << std::endl;\
-                if (patience < DEFAULT_TRAINING_LOOP_PATIENCE)\
+                if (el_previous == 0 || el < el_previous)\
                 {\
-                    patience = patience + 1;\
+                    std::cout<< "epoch_loss = (" << el << "), Average epoch_loss = " << el/pairs.get_number_of_word_pairs() << std::endl;\
+                    el_previous = el;\
                 }\
                 else\
                 {\
-                    stf = true;\
+                    std::cout<< "Average epoch_loss is increasing... from " << el_previous/pairs.get_number_of_word_pairs() << " to " << el/pairs.get_number_of_word_pairs() << std::endl;\
+                    if (patience < DEFAULT_TRAINING_LOOP_PATIENCE)\
+                    {\
+                        patience = patience + 1;\
+                    }\
+                    else\
+                    {\
+                        stf = true;\
+                    }\
                 }\
+            }\
+            /* Negative sampling is enabled */\
+            else\
+            {\
+                std::cout<< "Total negative positive sampling epoch loss = (" << fp.positive_negative_epoch_loss << "), Average epoch loss = " <<  fp.positive_negative_epoch_loss/pairs.get_number_of_word_pairs() << std::endl;\
             }\
         }\
     }\
