@@ -1097,6 +1097,11 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
 template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
 backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, forward_propogation<T>& fp, WORDPAIRS_PTR pair, bool ns = false, bool verbose = false, T learning_rate = SKIP_GRAM_DEFAULT_LEARNING_RATE) throw (ala_exception)
 {
+    if (pair->getCenterWord() > W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
+    {
+        throw ala_exception("backward() Error: Index of center word is out of bounds of W1.");
+    }
+
     /* The hot one array is row vector, and has shape (1, vocab.len = REPLIKA_VOCABULARY_LENGTH a.k.a no redundency) */
     Collective<T> oneHot;
     /* 
@@ -1546,6 +1551,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                 if(ns && verbose)\
                 {\
                     std::cout<< "This pair positive samples loss = " << fp.positive_samples_loss << ", and Negative samples loss = " << fp.negative_samples_loss << std::endl;\
+                    el = el + fp.positive_negative_epoch_loss;\
                 }\
                 /* Backward Propagation: The backward function performs backward propagation and calculate the gradients\
                    with respect to the input and output layer weights using the forward propagation results (fp), word pair (pair),\
@@ -1602,7 +1608,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             /* Negative sampling is enabled */\
             else\
             {\
-                std::cout<< "Total negative positive sampling epoch loss = (" << fp.positive_negative_epoch_loss << "), Average epoch loss = " <<  fp.positive_negative_epoch_loss/pairs.get_number_of_word_pairs() << std::endl;\
+                std::cout<< "Total negative positive sampling epoch loss = (" << fp.positive_negative_epoch_loss << "), Average epoch loss = " <<  fp.positive_negative_epoch_loss/pairs.get_number_of_word_pairs() << ", (" << el << ", " << el/pairs.get_number_of_word_pairs() << ")." << std::endl;\
             }\
         }\
     }\
