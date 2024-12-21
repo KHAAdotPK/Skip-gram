@@ -114,15 +114,15 @@ int main(int argc, char* argv[])
 
     double default_lr = SKIP_GRAM_DEFAULT_LEARNING_RATE;
     if (arg_lr.i)
-    {
+    {        
         FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_lr);
 
         if (arg_lr.argc)
         {
-            default_lr = atof(argv[arg_lr.j]);
+            default_lr = atof(argv[arg_lr.i + 1]);
         }
     }
-
+        
     double default_rs = SKIP_GRAM_REGULARIZATION_STRENGTH;
     if (arg_rs.i)
     {
