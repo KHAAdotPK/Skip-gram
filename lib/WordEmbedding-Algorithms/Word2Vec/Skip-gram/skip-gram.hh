@@ -748,6 +748,105 @@ struct backward_propogation
         Collective<E> grad_hidden_with_respect_to_center_word;
 };
 
+template <typename E = double>
+void clip_gradients(Collective<E>& grad, AXIS axis = AXIS_NONE, E threshold = SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD) throw (ala_exception)
+{
+    if (grad.getShape().getN() == 0)
+    {
+        throw ala_exception("clip_gradients() Error: Gradient vector is empty.");
+    }
+
+    Collective<E> norm;
+
+    switch(axis)
+    {
+        case AXIS_NONE:
+        {                        
+            try
+            {
+                norm = Numcy::LinAlg::norm(grad);
+                if (norm.getShape().getN() != 1)
+                {
+                    throw ala_exception("clip_gradients() Error: \"norm\" vector has incorrect dimensions for \"AXIS_NONE\".");
+                }
+
+                if (norm[0] > threshold)
+                {
+                    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < norm.getShape().getN(); i++)
+                    {
+                        grad[i] = grad[i] * (threshold/norm[0]);
+                    }
+                }
+            }
+            catch(ala_exception& e)
+            {
+                throw ala_exception(cc_tokenizer::String<char>("clip_gradient() Error: ") + e.what());
+            }            
+        }
+        break;
+
+        case AXIS_COLUMN:
+        {
+            try
+            {
+                 norm = Numcy::LinAlg::norm(grad, AXIS_COLUMN);
+                 if (norm.getShape().getN() != grad.getShape().getNumberOfColumns())
+                 {
+                     throw ala_exception("clip_gradients() Error: \"norm\" vector has incorrect dimensions for \"AXIS_COLUMN\".");
+                 }
+                                        
+                for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < norm.getShape().getN(); i++)
+                {
+                    if (norm[i] > threshold)
+                    {
+                        for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < grad.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                        {
+                            grad[i + j*grad.getShape().getNumberOfColumns()] = grad[i + j*grad.getShape().getNumberOfColumns()] * (threshold/norm[i]);
+                        }
+                    }
+                }
+            }
+            catch(ala_exception& e)
+            {
+                throw ala_exception(cc_tokenizer::String<char>("clip_gradients() -> ") + e.what());
+            }
+        }
+        break;
+
+        case AXIS_ROWS:
+        try
+        {
+            norm = Numcy::LinAlg::norm(grad, AXIS_ROWS);
+            if (norm.getShape().getN() != grad.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
+            {
+                throw ala_exception("clip_gradients() Error: \"norm\" vector has incorrect dimensions for \"AXIS_ROWS\".");
+            }
+
+            for(cc_tokenizer::string_character_traits<char>::size_type i = 0; i < norm.getShape().getN(); i++)
+            {
+                if (norm[i] > threshold)
+                {
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < grad.getShape().getNumberOfColumns(); j++)
+                    {
+                        grad[i*grad.getShape().getNumberOfColumns() + j] = grad[i*grad.getShape().getNumberOfColumns() + j] * (threshold/norm[i]);
+                    }
+                }
+            }
+        }
+        catch (ala_exception& e)
+        {
+            throw ala_exception(cc_tokenizer::String<char>("clip_gradients() -> ") + e.what());
+        }
+        break;
+
+        default:
+        {
+            throw ala_exception("clip_gradients() Error: Invalid axis specified.");
+        }
+        break;
+    }    
+}
+
 /*
     In Skip-gram, we are predicting the context words from the central word (target).
     So, the negative samples should be words that are not the actual context words for the given target word 
@@ -1575,6 +1674,11 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                        In NLL, lower values indicate better performance. */\
                     el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
                     /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
+                }\
+                if (ns)\
+                {\
+                    clip_gradients(W1, AXIS_ROWS);\
+                    clip_gradients(W2, AXIS_COLUMN);\
                 }\
             }\
             catch (ala_exception& e)\
