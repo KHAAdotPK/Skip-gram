@@ -1338,6 +1338,8 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
              */          
              grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
              /*
+                Accumulates gradients first and applies them later in a separate step.
+                ---------------------------------------------------------------------- 
                 Take h transpose of  hidden_layer_vector(h) and the multiply it with 
                 grad_u(gradient of intermediate_activation) and the resulting matrix will grad_W2.
                 Before transpose_h has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, 1 column) and grad_u is (1 row, len((vocab with redundency) columns)
@@ -1407,6 +1409,10 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             /*
                 std::cout<< grad_h.getShape().getNumberOfColumns() << " ------------------------- " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
             */
+            /*
+                Accumulates gradients first and applies them later in a separate step.
+                ---------------------------------------------------------------------- 
+             */
             grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfTokens() /*vocab.numberOfUniqueTokens()*/, NULL, NULL});
 
             /*
