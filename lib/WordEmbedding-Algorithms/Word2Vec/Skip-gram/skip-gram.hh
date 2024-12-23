@@ -349,12 +349,15 @@ struct forward_propogation
      */
     E pb(cc_tokenizer::string_character_traits<char>::size_type i) throw (ala_exception)
     {
+        //std::cout<< "SHAPE OF Y_PRED = Rws = " << predicted_probabilities.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << ", " << predicted_probabilities.getShape().getNumberOfColumns() << std::endl;
+
         if (i >= predicted_probabilities.getShape().getN())
         {
             throw ala_exception("forward_propogation::pb() Error: Provided index value is out of bounds.");
         }
 
-        return predicted_probabilities[((i/predicted_probabilities.getShape().getNumberOfColumns())*predicted_probabilities.getShape().getNumberOfColumns() + i%predicted_probabilities.getShape().getNumberOfColumns())];
+        // return predicted_probabilities[((i/predicted_probabilities.getShape().getNumberOfColumns())*predicted_probabilities.getShape().getNumberOfColumns() + i%predicted_probabilities.getShape().getNumberOfColumns())];
+        return predicted_probabilities[i];
     }
     DIMENSIONS pbShape(void)
     {
@@ -978,17 +981,17 @@ Collective<T> softmax(Collective<T>& a, bool verbose = false) throw (ala_excepti
 
     try
     {
-        m = Numcy::max(a);
-        a_m = Numcy::subtract(a, m); 
-        e_a_m = Numcy::exp(a_m);  
-        s_e_a_m = Numcy::sum(e_a_m);
+        m = Numcy::max(a); // Max value of a
+        a_m = Numcy::subtract(a, m); // a - max(a)
+        e_a_m = Numcy::exp(a_m); // exp(a - max(a))
+        s_e_a_m = Numcy::sum(e_a_m); // sum(exp(a - max(a)))
         /*
             m is max
             a_m, a minus m
             e_a_m, exp over a_m
             s_e_a_m, sum of e_a_m
          */  
-        e_a_minus_max_divided_by_e_a_minus_max_sum = Numcy::divide(e_a_m, s_e_a_m);     
+        e_a_minus_max_divided_by_e_a_minus_max_sum = Numcy::divide(e_a_m, s_e_a_m); // Normalize   
     }
     catch(ala_exception& e)
     {        
@@ -1069,7 +1072,22 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
 
         if (!ns)
         {
+            /*T* W2_sample_ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); i++)
+            {
+                W2_sample_ptr[i] = W2[i*W2.getShape().getNumberOfColumns() + (pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)];
+            }
+            Collective<T> W2_sample = Collective<T>{W2_sample_ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
+
+            cc_tokenizer::allocator<T>().deallocate(W2_sample_ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+            W2_sample_ptr = NULL;*/
+            //u = Numcy::dot(h, W2_sample);
+
+            /*m*n n*p = m*p
+            1, 16 16, 59*/
             u = Numcy::dot(h, W2); 
+
+            //std::cout<< u.getShape().getNumberOfColumns() << " ----- " << u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
             /*
                 When ns == false (no negative sampling), y_pred is computed using softmax(u),
                 which is correct for the traditional skip-gram model without negative sampling.
