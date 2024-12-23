@@ -931,27 +931,30 @@ Collective<E> generateNegativeSamples(WORDPAIRS_PTR current_word_pair_ptr, CORPU
     // Generate negative samples
     E i = 0;
     for (; i < n;)
-    {
+    {        
          // Randomly select a central word from the vocabulary, central words are all the unique words
         cc_tokenizer::string_character_traits<char>::size_type central_word_index = distrib(gen);
 
-        cc_tokenizer::string_character_traits<char>::size_type j = 0;
-        for (; j < SKIP_GRAM_CONTEXT_WINDOW_SIZE;)
-        {
-            if ((left_context->array[j] == (central_word_index + INDEX_ORIGINATES_AT_VALUE)) || (right_context->array[j] == (central_word_index + INDEX_ORIGINATES_AT_VALUE)))
+        if (current_word_pair_ptr->getCenterWord() != (central_word_index + INDEX_ORIGINATES_AT_VALUE))
+        {                    
+            cc_tokenizer::string_character_traits<char>::size_type j = 0;
+            for (; j < SKIP_GRAM_CONTEXT_WINDOW_SIZE;)
             {
-                break;
-            }
+                if ((left_context->array[j] == (central_word_index + INDEX_ORIGINATES_AT_VALUE)) || (right_context->array[j] == (central_word_index + INDEX_ORIGINATES_AT_VALUE)))
+                {
+                    break;
+                }
 
-            j++;
-        } 
+                j++;
+            } 
 
-        if (!(j < SKIP_GRAM_CONTEXT_WINDOW_SIZE))
-        {
-            *(ptr + i) = central_word_index /*+ INDEX_ORIGINATES_AT_VALUE*/;
+            if (!(j < SKIP_GRAM_CONTEXT_WINDOW_SIZE))
+            {
+                *(ptr + i) = central_word_index /*+ INDEX_ORIGINATES_AT_VALUE*/;
 
-            i++;
-        }                
+                i++;
+            }                
+        }
     }
 
     return Collective<E>{ptr, DIMENSIONS{n, 1, NULL, NULL}};               
