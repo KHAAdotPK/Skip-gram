@@ -1694,8 +1694,16 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                     }\
                     else\
                     {\
-                        W1 -= ((bp.grad_weights_input_to_hidden + (W1 * rs)) * lr);\
-                        W2 -= ((bp.grad_weights_hidden_to_output + (W2 * rs)) * lr);\
+                        /* L2 regularization (also known as weight decay). */\
+                        /* ----------------------------------------------- */\
+                        /* The regularization strength (rs) controls how much penalty is applied. */\
+                        /* The weights are updated by subtracting the learning rate (lr) scaled by the sum of the gradient and the regularization term. */\
+                        /* Ensure that the regularization strength (rs) is not too large, as it might lead to excessively penalizing the weights and slow down convergence. */\
+                        /* The regularization expression W1 * rs and W2 * rs are added to gradient added to the gradient to penalize large weights, which helps prevent overfitting. */\
+                        /*W1 -= ((bp.grad_weights_input_to_hidden + (W1 * rs)) * lr);*/\
+                        W1 -= (bp.grad_weights_input_to_hidden * lr) + (W1 * rs * lr);\
+                        /*W2 -= ((bp.grad_weights_hidden_to_output + (W2 * rs)) * lr);*/\
+                        W2 -= (bp.grad_weights_hidden_to_output * lr) + (W2 * rs * lr);\
                     }\
                     /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
                        In NLL, lower values indicate better performance. */\
