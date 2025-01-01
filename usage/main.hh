@@ -43,7 +43,7 @@
 #ifdef SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD
 #undef SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD
 #endif
-#define SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD 2.0
+#define SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD 5.0
 
 #define DEFAULT_TRAINING_LOOP_PATIENCE 3
 
@@ -65,7 +65,7 @@ batch --batch (Loads initial weights from a specified file, allowing batch proce
 input --input (Specifies the filenames to retrieve the partially input and output trained weights during training.)\n\
 output --output (Specifies the filenames to store the input and output trained weights after completion of training.)\n\
 ns --ns negative_sampling --negative_sampling (This flag enables negative sampling. It is the process of approximating the softmax function by just drawing a few examples from the set of samples that do not appear in the context of the main word.)\n\
-show_pairs --show_pairs (Displays pairs of target/center words and their surrounding context words. The number of context words for each target word is determined by the macro SKIP_GRAM_WINDOW_SIZE, which is a configurable hyperparameter)\n"
-
+show_pairs --show_pairs (Displays pairs of target/center words and their surrounding context words. The number of context words for each target word is determined by the macro SKIP_GRAM_WINDOW_SIZE, which is a configurable hyperparameter)\
+save_initial_weights --save_initial_weights (Saves the initial \"randomly initialized weights\" for the embedding matrices W1 W2 to the files before training begins.)\n"
 
 #endif

@@ -254,7 +254,7 @@ int main(int argc, char* argv[])
     else 
     {
         try 
-        {
+        {            
             /*
                 The weights 𝑊1 and 𝑊2​ are initialized using random values drawn from a normal distribution, which is typical for training embeddings in skip-gram models. This approach prevents symmetry and allows gradients to flow during backpropagation.
              */
