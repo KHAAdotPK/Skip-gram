@@ -1643,7 +1643,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
     @ns, Negative sampling flag. When this flag is true, the code related to negative sampling gets activated
     @verbose, when true puts more text on screen to help debug code    
  */
-#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, rs, t, stf, ns, verbose)\
+#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, rs, t, stf, ns, shuffle_target_context_pairs, verbose)\
 {\
     cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
     /* Epoch loop */\
@@ -1659,7 +1659,10 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
         forward_propogation<t> fp;\
         backward_propogation<t> bp;\
         /* Shuffle Word Pairs: Shuffles the training data (word pairs) before each epoch to avoid biases in weight updates */\
-        Numcy::Random::shuffle<PAIRS>(pairs, pairs.get_number_of_word_pairs());\
+        if (shuffle_target_context_pairs)\
+        {\
+            Numcy::Random::shuffle<PAIRS>(pairs, pairs.get_number_of_word_pairs());\
+        }\
         /* Iterates through each word pair in the training data  */\
         while (pairs.go_to_next_word_pair() != cc_tokenizer::string_character_traits<char>::eof() && !stf)\
         {\
