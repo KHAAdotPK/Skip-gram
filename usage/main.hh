@@ -68,6 +68,6 @@ ns --ns negative_sampling --negative_sampling (This flag enables negative sampli
 show_pairs --show_pairs (Displays pairs of target/center words and their surrounding context words. The number of context words for each target word is determined by the macro SKIP_GRAM_WINDOW_SIZE, which is a configurable hyperparameter)\n\
 save_initial_weights --save_initial_weights (Saves the initial \"randomly initialized weights\" for the embedding matrices W1 W2 to the files before training begins.)\n\
 shuffle_target_context_pairs --shuffle_target_context_pairs (Shuffles the target/center word and its context words during training, at the start of each new epoch begins.)\n\
-rasndom_number_generator_seed --random_number_generator_seed (Sets the seed for the random number generator.)\n"
+random_number_generator_seed --random_number_generator_seed (Sets the seed for the random number generator.)\n"
 
 #endif
