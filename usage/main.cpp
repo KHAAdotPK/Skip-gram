@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[])
 { 
-    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs;
+    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
 
@@ -38,6 +38,7 @@ int main(int argc, char* argv[])
     FIND_ARG(argv, argc, argsv_parser, "ns", arg_ns);
     FIND_ARG(argv, argc, argsv_parser, "show_pairs", arg_show_pairs);
     FIND_ARG(argv, argc, argsv_parser, "shuffle_target_context_pairs", arg_shuffle_target_context_pairs);
+    FIND_ARG(argv, argc, argsv_parser, "--random_number_generator_seed", arg_random_number_generator_seed);
 
     if (arg_corpus.i)
     {
@@ -111,6 +112,21 @@ int main(int argc, char* argv[])
 
             return 0;
         }                
+    }
+
+    double default_random_number_generator_seed = 0;
+    if (arg_random_number_generator_seed.i)
+    {
+        FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_random_number_generator_seed);
+
+        if (arg_random_number_generator_seed.argc)
+        {
+            default_random_number_generator_seed = atof(argv[arg_random_number_generator_seed.i + 1]);
+        }
+        else
+        {
+            default_random_number_generator_seed = NUMCY_DEFAULT_RANDOM_NUMBER_GENERATOR_SEED;
+        }
     }
 
     double default_lr = SKIP_GRAM_DEFAULT_LEARNING_RATE;
@@ -259,8 +275,8 @@ int main(int argc, char* argv[])
             /*
                 The weights 𝑊1 and 𝑊2​ are initialized using random values drawn from a normal distribution, which is typical for training embeddings in skip-gram models. This approach prevents symmetry and allows gradients to flow during backpropagation.
              */
-            W1 = Numcy::Random::randn<double>(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfTokens() /*vocab.numberOfUniqueTokens()*/ , NULL, NULL}, 10);
-            W2 = Numcy::Random::randn<double>(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}, 10);
+            W1 = Numcy::Random::randn<double>(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfTokens() /*vocab.numberOfUniqueTokens()*/ , NULL, NULL}, default_random_number_generator_seed);
+            W2 = Numcy::Random::randn<double>(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}, default_random_number_generator_seed);
 
             std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
             std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
