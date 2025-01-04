@@ -322,7 +322,7 @@ int main(int argc, char* argv[])
         }
         catch (ala_exception& e)
         {
-            std::cout<< e.what() << std::endl;
+            std::cerr<< "main() Error: " << e.what() << std::endl;
         }
     }
 
