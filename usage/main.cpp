@@ -286,68 +286,19 @@ int main(int argc, char* argv[])
             {
                 WRITE_W_BIN(W1, cc_tokenizer::String<char>("W1_initial_weights.dat"), double);
                 WRITE_W_BIN(W2, cc_tokenizer::String<char>("W2_initial_weights.dat"), double);
-            }
-
-            /*for (int i = 0; i <1; i++)
-            {
-                for (int j = 0; j < W1.getShape().getNumberOfColumns(); j++)
-                {
-                    std::cout<< W1[i*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + j] << ", ";
-                }
-
-                std::cout<< std::endl;
-            }
-
-            std::cout<< "****************************************************" << std::endl;
-
-            Collective<double> xxx = Numcy::ones<double>(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
-
-            W1 -= xxx * 2.0;
-
-            for (int i = 0; i <1; i++)
-            {
-                for (int j = 0; j < W1.getShape().getNumberOfColumns(); j++)
-                {
-                    std::cout<< W1[i*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + j] << ", ";
-                }
-
-                std::cout<< std::endl;
-            }
-            std::cout<< std::endl;*/
-            
-            /*
-            //cc_tokenizer::cooked_write<double>(cc_tokenizer::String<char>("first.dat"), &W1);
-            WRITE_W_BIN(W1, cc_tokenizer::String<char>("first.dat"), double);
-
-            //Collective<double> W3 = Collective<double>{cc_tokenizer::cooked_read<double>(cc_tokenizer::String<char>("first.dat"), W1.getShape().getN()), W1.getShape().copy()};
-
-            Collective<double> W3 = Collective<double>{NULL, W1.getShape().copy()};
-
-            READ_W_BIN(W3, cc_tokenizer::String<char>("first.dat"), double);
-
-            if (W1.getShape() == W3.getShape())
-            {
-                std::cout<< "Shapes are same.... with getN() = " << W1.getShape().getN() << std::endl;
-
-                for (size_t i = 0; i < W1.getShape().getN(); i++)
-                {
-                    if (W1[i] == W3[i])
-                    {
-                        std::cout<< "-> " << i << "  " << "same" << ", " << W3.getShape().getN() << std::endl;
-                    }
-                }
-            }
-            else
-            {
-                std::cout<< "Shapes are not same..." << std::endl;
-            }
-             */
+            }            
         }
         catch (ala_exception& e)
         {
             std::cerr<< "main() Error: " << e.what() << std::endl;
         }
     }
+
+    if (arg_save_initial_weights.i)
+    {
+        WRITE_W1_TO_TEXT_FILE(W1, INITIAL_W1_WEIGHT_TXT_FILE, vocab);
+        WRITE_W2_TO_TEXT_FILE(W2, INITIAL_W2_WEIGHT_TXT_FILE, vocab);
+    }    
 
     bool stop_training_flag = false;
     double epoch_loss = 0.0;
@@ -406,80 +357,13 @@ int main(int argc, char* argv[])
        ||  We need to store the weights now  ||
         --------------------------------------
      */
-    
+
     std::cout<< "Trained input weights written to file: " << /*TRAINED_INPUT_WEIGHTS_FILE_NAME*/ W1OutPutFile.c_str() << std::endl;
-
-    /*
-    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < vocab.numberOfUniqueTokens(); i++)
-    {
-        cc_tokenizer::String<char> line;    
-       
-        line = line + vocab[i + INDEX_ORIGINATES_AT_VALUE] + cc_tokenizer::String<char>(" ");
-
-        cc_tokenizer::string_character_traits<char>::size_type j = 0;
-
-        for (; j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE;)
-        {            
-            cc_tokenizer::String<char> num(W1[i*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + j]);
-
-            j++;
-
-            if (j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
-            {    
-                line = line + num + cc_tokenizer::String<char>(" ");
-            }
-            else
-            {
-                line = line + num;
-            }
-        }
-        
-        line = line + cc_tokenizer::String<char>("\n");
-
-        cc_tokenizer::cooked_write(cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME), line);
-    } 
-     */
-
-    //WRITE_W1(W1, /*cc_tokenizer::String<char>(TRAINED_INPUT_WEIGHTS_FILE_NAME)*/ W1OutPutFile, vocab);
-                          
+                                 
     WRITE_W_BIN(W1, W1OutPutFile.c_str(), double);
      
-
     std::cout<< "Trained output weights written to file: " << /*TRAINED_OUTPUT_WEIGHTS_FILE_NAME*/ W2OutPutFile.c_str() << std::endl;
-
-    /*
-    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < vocab.numberOfUniqueTokens(); i++)
-    {
-        cc_tokenizer::String<char> line; 
-
-        line = line + vocab[i + INDEX_ORIGINATES_AT_VALUE] + cc_tokenizer::String<char>(" ");
-
-        cc_tokenizer::string_character_traits<char>::size_type j = 0;
-
-        for (; j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE;)
-        {
-            cc_tokenizer::String<char> num(W2[j*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i]);
-
-            j++;
-
-            if (j < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
-            {    
-                line = line + num + cc_tokenizer::String<char>(" ");
-            }
-            else
-            {
-                line = line + num;
-            }
-        }
-
-        line = line + cc_tokenizer::String<char>("\n");
-
-        cc_tokenizer::cooked_write(cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME), line);    
-    }
-     */
-
-    //WRITE_W2(W2, /*cc_tokenizer::String<char>(TRAINED_OUTPUT_WEIGHTS_FILE_NAME)*/ W2OutPutFile, vocab);
-    
+            
     WRITE_W_BIN(W2, W2OutPutFile.c_str(), double);
                    
     return 0;

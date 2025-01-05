@@ -13,6 +13,8 @@
 #define SKIP_GRAM_DEFAULT_CORPUS_FILE ".\\data\\corpus.txt"
 #define TRAINED_INPUT_WEIGHTS_FILE_NAME     "W1trained.dat"
 #define TRAINED_OUTPUT_WEIGHTS_FILE_NAME    "W2trained.dat"
+#define INITIAL_W1_WEIGHT_TXT_FILE          "W1initial.txt"
+#define INITIAL_W2_WEIGHT_TXT_FILE          "W2initial.txt"
 
 #ifdef GRAMMAR_END_OF_TOKEN_MARKER
 #undef GRAMMAR_END_OF_TOKEN_MARKER
