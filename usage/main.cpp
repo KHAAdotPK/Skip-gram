@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[])
 { 
-    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed;
+    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed, arg_save_initial_weights;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
 
@@ -39,6 +39,7 @@ int main(int argc, char* argv[])
     FIND_ARG(argv, argc, argsv_parser, "show_pairs", arg_show_pairs);
     FIND_ARG(argv, argc, argsv_parser, "shuffle_target_context_pairs", arg_shuffle_target_context_pairs);
     FIND_ARG(argv, argc, argsv_parser, "--random_number_generator_seed", arg_random_number_generator_seed);
+    FIND_ARG(argv, argc, argsv_parser, "save_initial_weights", arg_save_initial_weights);
 
     if (arg_corpus.i)
     {
@@ -276,10 +277,16 @@ int main(int argc, char* argv[])
                 The weights 𝑊1 and 𝑊2​ are initialized using random values drawn from a normal distribution, which is typical for training embeddings in skip-gram models. This approach prevents symmetry and allows gradients to flow during backpropagation.
              */
             W1 = Numcy::Random::randn<double>(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfTokens() /*vocab.numberOfUniqueTokens()*/ , NULL, NULL}, default_random_number_generator_seed);
-            W2 = Numcy::Random::randn<double>(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}, default_random_number_generator_seed);
-
+            W2 = Numcy::Random::randn<double>(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}, default_random_number_generator_seed, AXIS_COLUMN);
+            
             std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
             std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
+
+            if (arg_save_initial_weights.i)
+            {
+                WRITE_W_BIN(W1, cc_tokenizer::String<char>("W1_initial_weights.dat"), double);
+                WRITE_W_BIN(W2, cc_tokenizer::String<char>("W2_initial_weights.dat"), double);
+            }
 
             /*for (int i = 0; i <1; i++)
             {
