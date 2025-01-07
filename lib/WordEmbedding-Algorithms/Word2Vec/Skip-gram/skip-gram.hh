@@ -995,7 +995,7 @@ Collective<T> softmax(Collective<T>& a, bool verbose = false) throw (ala_excepti
     }
     catch(ala_exception& e)
     {        
-        throw ala_exception(cc_tokenizer::String<char>("softmax() Error: ") + cc_tokenizer::String<char>(e.what()));
+        throw ala_exception(cc_tokenizer::String<char>("softmax() -> ") + e.what());
     }
     
     return e_a_minus_max_divided_by_e_a_minus_max_sum;
@@ -1697,6 +1697,14 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                     }\
                     else\
                     {\
+                        /* Relationship between learning rate (lr) and regularization strength (rs) */\
+                        /* ------------------------------------------------------------------------ */\
+                        /* High learning rate (lr) often requires higher regularization strength (rs) to prevent overfitting or unstable updates during training. */\
+                        /* A high learning rate leads to larger parameter updates, which can result in the model overshooting the optimal solution or overfitting the training data. */\
+                        /* Increasing the regularization strength helps by penalizing large weights, thus stabilizing the training */\
+                        /* Low learning rate (lr) generally allows for either no regularization or lower regularization strength because smaller updates reduce the risk of overfitting. */\
+                        /* In such cases, the model converges more slowly, and heavy regularization may not be necessary */\
+                        \
                         /* L2 regularization (also known as weight decay). */\
                         /* ----------------------------------------------- */\
                         /* The regularization strength (rs) controls how much penalty is applied. */\
@@ -1731,7 +1739,8 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             {\
                 if (el_previous == 0 || el < el_previous)\
                 {\
-                    std::cout<< "epoch_loss = (" << el << "), Average epoch_loss = " << el/pairs.get_number_of_word_pairs() << std::endl;\
+                    std::cout<< "epoch_loss = (" << el << "), Average epoch_loss = " << el/pairs.get_number_of_word_pairs() << ". Reduction between consecutive epochs: " << el_previous - el << "." << std::endl;\
+                    \
                     el_previous = el;\
                 }\
                 else\
