@@ -10,7 +10,7 @@ int main(int argc, char* argv[])
     ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed, arg_save_initial_weights;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
-
+    
     FIND_ARG(argv, argc, argsv_parser, "?", arg_help);
     if (arg_help.i)
     {
