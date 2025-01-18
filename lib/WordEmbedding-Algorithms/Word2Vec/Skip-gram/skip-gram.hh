@@ -964,6 +964,25 @@ Collective<E> generateNegativeSamples(WORDPAIRS_PTR current_word_pair_ptr, CORPU
 }
 
 /*
+    The following implementation faithfully implements the softmax function described in the article... https://arxiv.org/pdf/1411.2738 
+ */
+/*
+    Page 7 of https://arxiv.org/pdf/1411.2738 
+    -----------------------------------------
+    - uc,j the net input (logit) for the j-th word in the output layer for the c-th context word. It is computed as:
+        - uc,j = h . W2j (for just a single "uc,j"), where "h" is the embedding of the center word wI(i-th) and wj(j-th) column of the weight matrix W2.
+    - exp(uc,j) the exponential of the logit, ensuring all values are positive.
+    - [Sum(for all j from 1 to V) exp(uj)] the sum of exponentials of logits across all words in the vocabulary V normalizing the probabilities.
+    - yc,j the softmax output, representing the probability of the j-th word being the context word wO,c given the center/target word wI.
+
+    Why exponentials? 
+    - Exponentials amplify the differences between logits, making higher scores dominate in the probability distribution. 
+    - This helps the model focus on the most likely target words.
+
+    The Equation.
+    p(wc,j = wO,c | wI) = yc,j = exp(uc,j) / [Sum(for all j from 1 to V) exp(uj)] 
+*/
+/*
     The softmax function is a mathematical function that takes a vector of real numbers as input and normalizes
     them into a probability distribution.
     This distribution ensures that all the output values lie between 0 and 1, and they sum up to 1. 
@@ -981,10 +1000,30 @@ Collective<T> softmax(Collective<T>& a, bool verbose = false) throw (ala_excepti
 
     try
     {
+        /*
+            Max Value for Stability.
+            - This step subtracts the maximum value max(a) from each input value "a" or u in the eqution from the article.
+            - It's a standard numerical stability trick to prevent overflow or underflow when computing exp(u) for large or small values.
+         */
         m = Numcy::max(a); // Max value of a
         a_m = Numcy::subtract(a, m); // a - max(a)
+
+        /*
+            Exponential of Adjusted Values.
+            - Computes the exponential exp(a - max(a)), which corresponds to exp(uj) from the equation of article.
+         */
         e_a_m = Numcy::exp(a_m); // exp(a - max(a))
+
+        /*
+            Sum of Exponentials.
+            Computes the denominator of the equation from the article... [Sum(for all j from 1 to V) exp(uj)].
+         */
         s_e_a_m = Numcy::sum(e_a_m); // sum(exp(a - max(a)))
+
+        /*
+            Normalization.
+            - Divides the exponential of each adjusted input exp(uj) = exp(a - max(a)) by the sum of exponentials, producing the softmax probabilities.
+         */
         /*
             m is max
             a_m, a minus m
@@ -1036,6 +1075,13 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
     try 
     {
         /*
+            Page 7 of https://arxiv.org/pdf/1411.2738 
+            -----------------------------------------
+            - Neural networks often assume that inputs and outputs are column vectors, as this aligns with standard linear algebra conventions.
+            - Thus, the "transpose" step may be a reminder to treat "h" as a column vector. 
+            - But in this implementation, "h" is row vector 1xN and "W2" is NxV so both a vector and a martix are already aligned for valid computation.  There's no need to transpose "h" unnecessarily.
+         */
+        /*
             --------------------------------------------
             | For both negative and positive sampling. |
             --------------------------------------------
@@ -1046,7 +1092,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
             The embedding for the center word is stored in the hidden layer vector h.
          */        
         h = W1.slice(W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE), W1.getShape().getNumberOfColumns());
-        
+                
         // Compute the logits u using the dot product of h (center word embedding) and W2 (output layer weights)
         /*	
             Represents an intermediat gradient.	 
@@ -1083,14 +1129,41 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
             W2_sample_ptr = NULL;*/
             //u = Numcy::dot(h, W2_sample);
 
-            /*m*n n*p = m*p
-            1, 16 16, 59*/
-            u = Numcy::dot(h, W2); 
+            //std::cout<< "Columns = " << h.getShape().getNumberOfColumns() << " ----- " << "Rows = " << h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+            //std::cout<< "Columns = " << W2.getShape().getNumberOfColumns() << " ----- " << "Rows = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
 
-            //std::cout<< u.getShape().getNumberOfColumns() << " ----- " << u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+            /*
+                The dot product produces the logits (net inputs) for the softmax layer.
+                The weight matrix "W2" (N x V) is shared across all context words for a given center word.
+
+                Page 7 of https://arxiv.org/pdf/1411.2738 
+                -----------------------------------------
+                - In the skip-gram model, multiple "panels" represent different context words. For example:
+                    - "c" represents the position of the context word relative to the center word.
+                - All these panels share the same weight matrix "W2" meaning "W2" is reused for every context position.
+
+                - "uc,j" is the net input to the j-th unit in the output layer for a specific context "c".  
+                - "wj" is the j-th column of the weight matrix "W2"
+                - "h" is the hidden layer representation (the word embedding of the input word).
+                Mathematically ucj = h . W2j (for just a single "uc,j")
+
+                The dot product computes the net inputs for all output units (not just a single "uc,j").
+                - The result is a vector where each element represents the net input for a specific output word.
+                - OR a vector of net inputs for all words in the vocabulary, which will later pass through a softmax function to compute probabilities.                
+             */
+            /* m is rows, likewise */
+            /* m*n . n*p = m*p */
+            /* h = 1xN and W2 = NxV hence u = 1xV */
+            u = Numcy::dot(h, W2); 
+            
+            //std::cout<< "Columns = " << u.getShape().getNumberOfColumns() << " ----- " << "Rown = " << u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+
             /*
                 When ns == false (no negative sampling), y_pred is computed using softmax(u),
                 which is correct for the traditional skip-gram model without negative sampling.
+             */
+            /*
+                After computing "u" for a center word, you apply the softmax function over "u" to convert it into probabilities for all words in the vocabulary.
              */
             /*
                 The resulting vector (u) is passed through a softmax function to obtain the predicted probabilities (y_pred). 
@@ -1101,7 +1174,11 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
 
                 In `Skip-gram`, this output represents the likelihood of each word being one of the context words for the given center word.
             */
-            y_pred = softmax(u);        
+            y_pred = softmax(u);
+
+            /*
+                The model then computes the loss using these probabilities against the actual target word(s) in the context.
+             */        
         }
         else if (negative_samples_indices.getShape().getN()) 
         {   
