@@ -47,6 +47,57 @@ cd ..\usage
 ```BASH
 ./RUN.cmd
 ```
+
+### Command Line Options
+The Skip-gram model implementation provides various command-line options to customize the training process and control program behavior. Below is a comprehensive list of available options, grouped by their functionality.
+
+#### Basic Options
+| Option | Aliases | Description |
+|--------|---------|-------------|
+| `--help` | `-h`, `help`, `/help`, `?`, `/?` | Displays the help screen, listing available commands and their descriptions |
+| `--version` | `-v`, `version`, `/v` | Shows the current version of the software |
+| `--verbose` | `verbose` | Enables detailed output for each operation during execution |
+
+#### Training Parameters
+| Option | Aliases | Description |
+|--------|---------|-------------|
+| `--epoch` | `-e`, `epoch`, `/e` | Sets the epoch count, determining the number of iterations for the training loop |
+| `--lr` | `lr`, `learningrate` | Defines the learning rate parameter to control the rate of convergence |
+| `--rs` | `rs` | Sets the regularization strength, used to prevent overfitting |
+| `--loop` | `loop` | Repeats the training loop on previously trained weights at least one additional time |
+| `--random_number_generator_seed` | `random_number_generator_seed` | Sets the seed for the random number generator |
+
+#### Input/Output Options
+| Option | Aliases | Description |
+|--------|---------|-------------|
+| `--corpus` | `corpus` | Specifies the path to the file containing the training data |
+| `--input` | `input` | Specifies the filenames to retrieve the partially input and output trained weights during training |
+| `--output` | `output` | Specifies the filenames to store the input and output trained weights after completion of training |
+| `--batch` | `batch` | Loads initial weights from a specified file, allowing batch processing with predefined starting weights |
+| `--save_initial_weights` | `save_initial_weights` | Saves the initial "randomly initialized weights" for the embedding matrices W1 W2 to the files before training begins |
+
+#### Advanced Options
+| Option | Aliases | Description |
+|--------|---------|-------------|
+| `--negative_sampling` | `-ns`, `--ns` | Enables negative sampling to approximate the softmax function by drawing a few examples from non-context samples |
+| `--show_pairs` | `show_pairs` | Displays pairs of target/center words and their surrounding context words (window size determined by SKIP_GRAM_WINDOW_SIZE) |
+| `--shuffle_target_context_pairs` | `shuffle_target_context_pairs` | Shuffles the target/center word and its context words during training at the start of each epoch |
+
+#### Example Usage
+```bash
+# Basic training with default parameters
+./skipy.exe --corpus data/training.txt --epoch 10
+
+# Advanced training with negative sampling and custom learning rate
+./skipy.exe --corpus data/training.txt --epoch 20 --lr 0.01 --negative_sampling --verbose
+
+# Continue training from previous weights
+./skipy.exe --corpus data/training.txt --input previous_weights.txt --loop
+
+# Training with specific random seed and shuffling
+./skipy.exe --corpus data/training.txt --random_number_generator_seed 42 --shuffle_target_context_pairs
+```
+
 ### TODO
 1. **Negative Sampling**: Implement negative sampling to improve training efficiency. Negative sampling is an optimization technique used to approximate the softmax function in the output layer. Instead of updating the weights for all words in the vocabulary, negative sampling updates only a small number of negative samples, reducing computational complexity and speeding up the training process.
 2. **Regularization**: Implements techniques to prevent overfitting.
