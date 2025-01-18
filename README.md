@@ -99,8 +99,16 @@ The Skip-gram model implementation provides various command-line options to cust
 ```
 
 ### TODO
-1. **Negative Sampling**: Implement negative sampling to improve training efficiency. Negative sampling is an optimization technique used to approximate the softmax function in the output layer. Instead of updating the weights for all words in the vocabulary, negative sampling updates only a small number of negative samples, reducing computational complexity and speeding up the training process.
-2. **Regularization**: Implements techniques to prevent overfitting.
+Currently, there are no pending major implementation tasks. Check the issues page for any minor improvements or bug fixes that need attention.
+
+### Experimental Features
+The following features have been implemented but are currently in an experimental state and need further testing:
+
+1. **Negative Sampling**: An optimization technique that approximates the softmax function by updating only a small number of negative samples. While implemented, this feature requires additional testing and validation before being recommended for production use.
+
+2. **Regularization**: Implementation of techniques to prevent overfitting. Currently available but undergoing testing to ensure optimal performance and reliability.
+
+⚠️ **Warning**: These features are provided for experimental purposes only. Use them with caution as they may not perform as expected in all scenarios. We recommend waiting for thorough testing and validation before using them in production environments.
 
 ### Contributing
 Contributions are welcome! Please feel free to submit a pull request or open an issue if you have any suggestions or bug reports.
