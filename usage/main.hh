@@ -47,6 +47,9 @@
 #endif
 #define SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD 5.0
 
+/*
+    If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1
+ */
 #ifdef SKIP_GRAM_LEARNING_RATE_DECAY
 #undef SKIP_GRAM_LEARNING_RATE_DECAY
 #endif
