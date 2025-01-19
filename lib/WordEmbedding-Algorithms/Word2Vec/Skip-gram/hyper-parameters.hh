@@ -10,7 +10,7 @@
    Regularization: Neural networks are notorious for their overfitting issues and they tend to memorize the data without learning the underlying patterns.
    There are different regularization techniques including L1 and L2 regularization, dropout, and early stopping.
    Fundamentally, they involve applying some mathematical function to prevent the model from over-learning from the data.
-   L1 and L2 regularization: add absolute values or squares of weights to the loss function
+   L1 and L2 regularization: add absolute values or squares of weights to the loss function.
    Dropout: Randomly set some fraction of outputs in the layer to zero during training (prevents single neuron overlearning)
  */
 #ifndef SKIP_GRAM_REGULARIZATION_STRENGTH
@@ -30,8 +30,7 @@
    The learning rate controls the step size at each iteration of the optimization process. 
    There's no single "best" learning rate. It depends on your specific problem and model architecture.
 
-   A learning rate of 0.1 can be a good starting point for some problems, but it might be too high for your Skip-gram model
-   if you're encountering NaN loss in every iteration.
+   A learning rate of 0.1 can be a good starting point for some problems, but it might be too high for your Skip-gram model if you're encountering NaN loss in every iteration.
    0.01 to 0.001: This is a common starting point for many deep learning tasks.
    Even lower (e.g., 0.0001 or less): Depending on your specific dataset and network architecture, you might need an even smaller learning rate
  */
@@ -39,8 +38,7 @@
 /*
     Number of neurons in the hidden layer and this represents the size of the hidden layer in the neural network.
     10 neurons is small size, suitable for small vocabulary.
-    However, for larger vocabularies and more complex tasks, a larger hidden layer size may be required to capture more intricate relationships 
-    between the input and output 
+    However, for larger vocabularies and more complex tasks, a larger hidden layer size may be required to capture more intricate relationships between the input and output 
 
     Use ifdef, undef define preprocessor directives
  */
@@ -49,7 +47,7 @@
 #endif
 
 /*
-   Size of window of context words around a target/center word, and use the context words to predict the target word(in CBOW/Skip-Gram model) 
+   Size of window of context words around a target/center word, and use the context words to predict the target word(in CBOW/Skip-Gram model).
    In the Skip-gram model, the model predicts the context words given a target word
 
    Use ifdef, undef define preprocessor directives
@@ -59,14 +57,24 @@
 #endif
 
 /*
-   Negative Sampling: Regularizes by discouraging the model from assigning high probabilities to incorrect context words.
+   Negative Sampling: Regularizes by discouraging the model from assigning high probabilities to incorrect context words
  */
 #ifndef SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES
 #define SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES 5
 #endif
 
+/*
+ */
 #ifndef SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD
 #define SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD 5.0
 #endif
+
+/*
+   Controls the rate at which learning rate decreases during training. Set to 1 for constant learning rate. When enabled, the learning rate gradually decreases over time, starting with a larger value for faster initial learning and decreasing for fine-tuning
+ */
+#ifdef SKIP_GRAM_LEARNING_RATE_DECAY
+#undef SKIP_GRAM_LEARNING_RATE_DECAY
+#endif
+#define SKIP_GRAM_LEARNING_RATE_DECAY 1
 
 #endif
