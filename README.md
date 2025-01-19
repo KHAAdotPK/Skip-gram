@@ -9,8 +9,10 @@ This implementation includes the following key components:
 - **Training Loop**: Iterates over the dataset for a specified number of epochs, updating the weights using forward and backward propagation.
 - **Forward Propagation**: Computes the hidden layer activation and predicted probabilities.
 - **Backward Propagation**: Calculates the gradients for weight updates.
+- **Negative Sampling**: An optimization technique that approximates the softmax function by updating only a small number of negative samples.
+- **Learning Rate Decay**: A training optimization technique where the learning rate gradually decreases over time, allowing for faster initial learning and fine-tuning in later stages.
 - **Loss Calculation**: Utilizes negative log-likelihood to measure the model's performance.
-- ~~**Regularization**: Implements techniques to prevent overfitting~~.
+- **Regularization**: Implements techniques to prevent overfitting.
 
 ### Dependencies
 1.  [ala_exception](https://github.com/KHAAdotPK/ala_exception)
@@ -64,8 +66,9 @@ The Skip-gram model implementation provides various command-line options to cust
 | `--epoch` | `-e`, `epoch`, `/e` | Sets the epoch count, determining the number of iterations for the training loop |
 | `--lr` | `lr`, `learningrate` | Defines the learning rate parameter to control the rate of convergence |
 | `--rs` | `rs` | Sets the regularization strength, used to prevent overfitting |
-| `--loop` | `loop` | Repeats the training loop on previously trained weights at least one additional time |
-| `--random_number_generator_seed` | `random_number_generator_seed` | Sets the seed for the random number generator |
+|| `--loop` | `loop` | Repeats the training loop on previously trained weights at least one additional time |
+|| `--learning_rate_decay` | `--lr_decay`, `learning_rate_scheduling` | Controls the rate at which learning rate decreases during training. Set to 1 for constant learning rate. When enabled, the learning rate gradually decreases over time, starting with a larger value for faster initial learning and decreasing for fine-tuning |
+|| `--random_number_generator_seed` | `random_number_generator_seed` | Sets the seed for the random number generator |
 
 #### Input/Output Options
 | Option | Aliases | Description |
@@ -96,6 +99,9 @@ The Skip-gram model implementation provides various command-line options to cust
 
 # Training with specific random seed and shuffling
 ./skipy.exe --corpus data/training.txt --random_number_generator_seed 42 --shuffle_target_context_pairs
+
+# Training with learning rate decay
+./skipy.exe --corpus data/training.txt --epoch 20 --lr 0.01 --learning_rate_decay 0.95
 ```
 
 ### TODO
