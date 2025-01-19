@@ -1727,7 +1727,6 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
     /* Epoch loop */\
     for (cc_tokenizer::string_character_traits<char>::size_type i = 1; i <= epoch && !stf; i++)\
     {\
-        lr = lr * lr_decay;\
         /* Initializes the epoch loss to 0 before accumulating errors from word pairs */\
         el = 0;\
         /* Conditional block that prints the current epoch number if verbose is True */\
@@ -1841,6 +1840,8 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                 std::cout<< "Total negative positive sampling epoch loss = (" << fp.positive_negative_epoch_loss << "), Average epoch loss = " <<  fp.positive_negative_epoch_loss/pairs.get_number_of_word_pairs() << ", (" << el << ", " << el/pairs.get_number_of_word_pairs() << ")." << std::endl;\
             }\
         }\
+        /* Multiply the learning rate by a decay factor, after each epoch. Specially, when you are not using negative sampling, start with higher learning rate and gradually decrease it at the completion of each epoch. If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1 */\
+        lr = lr * lr_decay;\
     }\
 }\
 
