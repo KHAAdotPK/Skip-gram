@@ -1714,18 +1714,20 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
     @vocab, instance of class corpus
     @pairs, inctance of class skip gram pairs. The target/center word and its context words
     @lr, learning rate. The learning rate controls the step size at each iteration of the optimization process
+    @lr_decay, learning rate decay, also known as learning rate scheduling. If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1.
     @rs, regulirazation strength. To prevent the model over-learning from the data
     @t, data type. Used as argument to templated types and functions
     @stf, Stop Training Flag, when set to true all training loops are stoped
     @ns, Negative sampling flag. When this flag is true, the code related to negative sampling gets activated
     @verbose, when true puts more text on screen to help debug code    
  */
-#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, rs, t, stf, ns, shuffle_target_context_pairs, verbose)\
+#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, ns, shuffle_target_context_pairs, verbose)\
 {\
     cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
     /* Epoch loop */\
     for (cc_tokenizer::string_character_traits<char>::size_type i = 1; i <= epoch && !stf; i++)\
     {\
+        lr = lr * lr_decay;\
         /* Initializes the epoch loss to 0 before accumulating errors from word pairs */\
         el = 0;\
         /* Conditional block that prints the current epoch number if verbose is True */\

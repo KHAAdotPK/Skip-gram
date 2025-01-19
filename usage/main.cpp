@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[])
 { 
-    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed, arg_save_initial_weights;
+    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed, arg_save_initial_weights, arg_lr_decay;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
     
@@ -40,6 +40,7 @@ int main(int argc, char* argv[])
     FIND_ARG(argv, argc, argsv_parser, "shuffle_target_context_pairs", arg_shuffle_target_context_pairs);
     FIND_ARG(argv, argc, argsv_parser, "--random_number_generator_seed", arg_random_number_generator_seed);
     FIND_ARG(argv, argc, argsv_parser, "save_initial_weights", arg_save_initial_weights);
+    FIND_ARG(argv, argc, argsv_parser, "learning_rate_scheduling", arg_lr_decay);
 
     if (arg_corpus.i)
     {
@@ -83,6 +84,17 @@ int main(int argc, char* argv[])
         {
             std::cout<<e.what()<<std::endl;
             return -1;
+        }
+    }
+
+    double default_lr_decay = SKIP_GRAM_DEFAULT_LEARNING_RATE;
+    if (arg_lr_decay.i)
+    {
+        FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_lr_decay);
+
+        if (arg_lr_decay.argc)
+        {
+            default_lr_decay = atof(argv[arg_lr_decay.i + 1]);
         }
     }
 
@@ -349,7 +361,7 @@ int main(int argc, char* argv[])
     /* Start training. */
     for (long i = 0; i < default_loop && !stop_training_flag; i++)
     {
-        SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_rs, double, stop_training_flag, arg_ns.i ? true : false, arg_shuffle_target_context_pairs.i ? true : false, arg_verbose.i ? true : false);
+        SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_lr_decay, default_rs, double, stop_training_flag, arg_ns.i ? true : false, arg_shuffle_target_context_pairs.i ? true : false, arg_verbose.i ? true : false);
     }
 
     /* 

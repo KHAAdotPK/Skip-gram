@@ -47,6 +47,11 @@
 #endif
 #define SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD 5.0
 
+#ifdef SKIP_GRAM_LEARNING_RATE_DECAY
+#undef SKIP_GRAM_LEARNING_RATE_DECAY
+#endif
+#define SKIP_GRAM_LEARNING_RATE_DECAY 0.99
+
 #define DEFAULT_TRAINING_LOOP_PATIENCE 3
 
 #include "../lib/argsv-cpp/lib/parser/parser.hh"
@@ -70,6 +75,7 @@ ns --ns negative_sampling --negative_sampling (This flag enables negative sampli
 show_pairs --show_pairs (Displays pairs of target/center words and their surrounding context words. The number of context words for each target word is determined by the macro SKIP_GRAM_WINDOW_SIZE, which is a configurable hyperparameter)\n\
 save_initial_weights --save_initial_weights (Saves the initial \"randomly initialized weights\" for the embedding matrices W1 W2 to the files before training begins.)\n\
 shuffle_target_context_pairs --shuffle_target_context_pairs (Shuffles the target/center word and its context words during training, at the start of each new epoch begins.)\n\
-random_number_generator_seed --random_number_generator_seed (Sets the seed for the random number generator.)\n"
+random_number_generator_seed --random_number_generator_seed (Sets the seed for the random number generator.)\n\
+--learning_rate_decay learning_rate_decay --lr_decay lr_decay --learning_rate_scheduling learning_rate_scheduling (It is a technique in ML where the learning rate gradually decreases over time during training, typically starting with a larger value to allow for bigger parameter updates and faster initial learning. This command optionaly accepts an argument. If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1)\n"
 
 #endif
