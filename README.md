@@ -66,9 +66,9 @@ The Skip-gram model implementation provides various command-line options to cust
 | `--epoch` | `-e`, `epoch`, `/e` | Sets the epoch count, determining the number of iterations for the training loop |
 | `--lr` | `lr`, `learningrate` | Defines the learning rate parameter to control the rate of convergence |
 | `--rs` | `rs` | Sets the regularization strength, used to prevent overfitting |
-|| `--loop` | `loop` | Repeats the training loop on previously trained weights at least one additional time |
-|| `--learning_rate_decay` | `--lr_decay`, `learning_rate_scheduling` | Controls the rate at which learning rate decreases during training. Set to 1 for constant learning rate. When enabled, the learning rate gradually decreases over time, starting with a larger value for faster initial learning and decreasing for fine-tuning |
-|| `--random_number_generator_seed` | `random_number_generator_seed` | Sets the seed for the random number generator |
+| `--loop` | `loop` | Repeats the training loop on previously trained weights at least one additional time |
+| `--learning_rate_decay` | `learning_rate_decay`, `--lr_decay` `lr_decay`, `learning_rate_scheduling` | Controls the rate at which learning rate decreases during training. Set to 1 for constant learning rate. When enabled, the learning rate gradually decreases over time, starting with a larger value for faster initial learning and decreasing for fine-tuning |
+| `--random_number_generator_seed` | `random_number_generator_seed` | Sets the seed for the random number generator |
 
 #### Input/Output Options
 | Option | Aliases | Description |
