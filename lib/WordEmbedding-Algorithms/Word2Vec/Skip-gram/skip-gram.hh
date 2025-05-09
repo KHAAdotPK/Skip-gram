@@ -1342,6 +1342,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             h_transpose has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, 1 column)
          */
         Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);
+
         /*std::cout<< "h(fp.hidden_layer_vector) Columns = " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << ", Rows = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;*/
         
         if (!ns)
@@ -1351,7 +1352,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                 This creates a zero-filled column vector with a length equal to the vocabulary size
              */
             oneHot = Numcy::zeros(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), 1, NULL, NULL});
-        
+                    
             /*
                 The following code block, iterates through the context word indices (left and right) from the pair object.
                 For each valid context word index (i), it sets the corresponding element in the oneHot vector to 1.
@@ -1376,7 +1377,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                     oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
                 }        
             }
-
+            
             /*           
                 Note: We are only handling unique tokens. Therefore, in some cases,
                 the number of one-hot encoded vectors may be less than the total number
@@ -1414,6 +1415,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                    leading to instability—often in ranges much higher than 1, sometimes reaching orders of magnitude greater depending on the scale of your loss function and the learning rate.
              */          
              grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
+             
              /*
                 Accumulates gradients first and applies them later in a separate step.
                 ---------------------------------------------------------------------- 
@@ -1424,11 +1426,10 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                 grad_W2 has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, len((vocab with redundency) columns)
               */
              grad_W2 =  Numcy::dot(h_transpose, grad_u);
-
+             
              // Update gradients for positive samples
              //W2 = W2 + grad_W2;                          
-        
-                
+                        
             /*
                 for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
                 {                        
@@ -1637,7 +1638,13 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
         Dimensions of grad_W1 is (len(vocab) without redundency, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
         Dimensions of grad_W2 is (len(vocab) without redundency, len(vocab) without redundency)
      */ 
-    return backward_propogation<T>{grad_W1, grad_W2, Collective<T>{NULL, DIMENSIONS{0, 0, NULL, NULL}}};
+    //return backward_propogation<T>{grad_W1, grad_W2, Collective<T>{NULL, DIMENSIONS{0, 0, NULL, NULL}}};
+
+    DIMENSIONS temp1 = DIMENSIONS{0, 0, NULL, NULL};
+    Collective<T> temp2 = Collective<T>{NULL, temp1.copy()};       
+    backward_propogation<T> ret = backward_propogation<T>{grad_W1, grad_W2, temp2};
+
+    return ret;
 }
 
 /*
@@ -1789,10 +1796,15 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                         /* The weights are updated by subtracting the learning rate (lr) scaled by the sum of the gradient and the regularization term. */\
                         /* Ensure that the regularization strength (rs) is not too large, as it might lead to excessively penalizing the weights and slow down convergence. */\
                         /* The regularization expression W1 * rs and W2 * rs are added to gradient added to the gradient to penalize large weights, which helps prevent overfitting. */\
-                        /*W1 -= ((bp.grad_weights_input_to_hidden + (W1 * rs)) * lr);*/\
-                        W1 -= (bp.grad_weights_input_to_hidden * lr) + (W1 * rs * lr);\
+                        Collective<t>  W1_rs = W1 * rs;\
+                        W1 -= ((bp.grad_weights_input_to_hidden + W1_rs /*(W1 * rs)*/) * lr);\
+                        Collective<t>  W2_rs = W2 * rs;\
+                        W2 -= ((bp.grad_weights_hidden_to_output + W2_rs /*(W2 * rs)*/) * lr);\
+                        \
+                        /*W1 -= (bp.grad_weights_input_to_hidden * lr) + (W1 * rs * lr);*/\
                         /*W2 -= ((bp.grad_weights_hidden_to_output + (W2 * rs)) * lr);*/\
-                        W2 -= (bp.grad_weights_hidden_to_output * lr) + (W2 * rs * lr);\
+                        \
+                        /*W2 -= (bp.grad_weights_hidden_to_output * lr) + (W2 * rs * lr);*/\
                     }\
                     /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
                        In NLL, lower values indicate better performance. */\
