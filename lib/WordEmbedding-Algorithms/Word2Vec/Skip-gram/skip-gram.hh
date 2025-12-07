@@ -208,7 +208,7 @@ struct forward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        hidden_layer_vector = Collective<E>{ptr, other.hidden_layer_vector.getShape().copy()};
+        hidden_layer_vector = Collective<E>{ptr, other.hidden_layer_vector.getShape()};
 
         try
         {                
@@ -230,7 +230,7 @@ struct forward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        predicted_probabilities = Collective<E>{ptr, other.predicted_probabilities.getShape().copy()};
+        predicted_probabilities = Collective<E>{ptr, other.predicted_probabilities.getShape()};
 
         try
         {        
@@ -252,7 +252,7 @@ struct forward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        intermediate_activation = Collective<E>{ptr, other.intermediate_activation.getShape().copy()};
+        intermediate_activation = Collective<E>{ptr, other.intermediate_activation.getShape()};
         
         /*try 
         {
@@ -523,7 +523,7 @@ struct backward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("backward_propogation() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        grad_weights_input_to_hidden = Collective<E>{ptr, grad_W1.getShape().copy()};
+        grad_weights_input_to_hidden = Collective<E>{ptr, grad_W1.getShape()};
 
         try 
         {                    
@@ -545,7 +545,7 @@ struct backward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("backward_propogation() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        grad_weights_hidden_to_output = Collective<E>{ptr, grad_W2.getShape().copy()};
+        grad_weights_hidden_to_output = Collective<E>{ptr, grad_W2.getShape()};
 
         //grad_hidden_with_respect_to_center_word = Collective<E>{NULL, DIMENSIONS{0, 0, NULL, NULL}};
 
@@ -569,7 +569,7 @@ struct backward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("backward_propogation() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        grad_hidden_with_respect_to_center_word = Collective<E>{ptr, grad_hidden_with_respect_to_center_word.getShape().copy()};
+        grad_hidden_with_respect_to_center_word = Collective<E>{ptr, grad_hidden_with_respect_to_center_word.getShape()};
     }
 
     backward_propogation<E>& operator= (backward_propogation<E>& other)    
@@ -601,7 +601,7 @@ struct backward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        grad_weights_input_to_hidden = Collective<E>{ptr, other.grad_weights_input_to_hidden.getShape().copy()};
+        grad_weights_input_to_hidden = Collective<E>{ptr, other.grad_weights_input_to_hidden.getShape()};
 
         try 
         {
@@ -623,7 +623,7 @@ struct backward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        grad_weights_hidden_to_output = Collective<E>{ptr, other.grad_weights_hidden_to_output.getShape().copy()};
+        grad_weights_hidden_to_output = Collective<E>{ptr, other.grad_weights_hidden_to_output.getShape()};
 
          try 
         {
@@ -645,7 +645,7 @@ struct backward_propogation
         {
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
-        grad_hidden_with_respect_to_center_word = Collective<E>{ptr, other.grad_hidden_with_respect_to_center_word.getShape().copy()};
+        grad_hidden_with_respect_to_center_word = Collective<E>{ptr, other.grad_hidden_with_respect_to_center_word.getShape()};
 
         return *this;
     }
@@ -1641,7 +1641,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
     //return backward_propogation<T>{grad_W1, grad_W2, Collective<T>{NULL, DIMENSIONS{0, 0, NULL, NULL}}};
 
     DIMENSIONS temp1 = DIMENSIONS{0, 0, NULL, NULL};
-    Collective<T> temp2 = Collective<T>{NULL, temp1.copy()};       
+    Collective<T> temp2 = Collective<T>{NULL, temp1};       
     backward_propogation<T> ret = backward_propogation<T>{grad_W1, grad_W2, temp2};
 
     return ret;
