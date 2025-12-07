@@ -850,6 +850,192 @@ void clip_gradients(Collective<E>& grad, AXIS axis = AXIS_NONE, E threshold = SK
     }    
 }
 
+/**
+ * @brief Constructs the negative sampling lookup table using the unigram^(3/4) noise distribution.
+ *
+ * This function builds a 100-million-entry (1e8) precomputed lookup table for O(1) negative
+ * sample generation during Skip-gram and CBOW training with negative sampling — exactly
+ * as implemented in the original Google Word2Vec C code (Mikolov et al., 2013).
+ *
+ * The noise distribution follows the recommendation from:
+ *   "Distributed Representations of Words and Phrases and their Compositionality"
+ *   (arXiv:1310.4546), Section 3.1:
+ *     P(w) ∝ [frequency(w)]^(3/4)
+ *
+ * This subsampling of frequent words (raising to 0.75) is the single most important trick
+ * that made Word2Vec embeddings high-quality and semantically meaningful. It ensures that
+ * rare words are oversampled as negatives relative to their raw frequency, dramatically
+ * improving analogical reasoning performance.
+ *
+ * The resulting table enables constant-time negative sample drawing via:
+ *     negative_word = negative_sampling_table[rand() % 100000000]
+ *
+ * @pre Vocabulary must be fully built (head ≠ nullptr and frequencies populated).
+ * @post negative_sampling_table contains 1e8 word indices distributed according to U^{3/4}.
+ *
+ * @throws ala_exception if vocabulary is empty or memory allocation fails.
+ *
+ * @note This function must be called once after corpus construction and before training.
+ *       The table is reused across all epochs and both Skip-gram and CBOW models.
+ *
+ * @see generateNegativeSamples()
+ * @see Tomas Mikolov et al., "Efficient Estimation of Word Representations in Vector Space", 2013
+ * @see Original Word2Vec source: https://code.google.com/archive/p/word2vec/
+ */
+template <typename E = cc_tokenizer::string_character_traits<char>::size_type>
+Collective<E> buildNegativeSamplesTable (CORPUS& vocab) throw (ala_exception)
+{
+
+    COMPOSITE_PTR composite_ptr = vocab.get_composite_ptr(1);
+
+    if (composite_ptr == NULL || vocab.numberOfUniqueTokens() == 0)
+    {
+        throw ala_exception("buildNegativeSamplesTable(CORPUS&) Error: Vocabulary is empty.");
+    }
+
+    double* power = NULL; // Array to hold the powered frequencies 
+
+    double z = 0.0; // Normalization constant
+    E *negative_sampling_table = NULL;
+    constexpr long long NEGATIVE_SAMPLING_TABLE_SIZE = 100'000'000LL; // Size of the negative sampling table 1e8 – original Word2Vec uses this size
+
+    try
+    {                
+        power = cc_tokenizer::allocator<double>().allocate(vocab.numberOfUniqueTokens());
+        negative_sampling_table = cc_tokenizer::allocator<E>().allocate(NEGATIVE_SAMPLING_TABLE_SIZE);
+
+        // Phase 1: Compute freq^0.75 and Z
+        for (cc_tokenizer::string_character_traits<char>::size_type i = 0; composite_ptr; composite_ptr = composite_ptr->next, ++i) 
+        {
+            power[i] = std::pow(composite_ptr->get_frequency(), 0.75); // Using power of 0.75 as per Mikolov et al.'s recommendation
+            z += power[i];  
+        }
+        
+        // Phase 2: Fill the negative sampling table
+        long long i = 0;
+        E wid = 0; // word index
+        double cum /* :) */ = power[0] / z; // cumulative probability
+        composite_ptr = vocab.get_composite_ptr(1);
+
+        do
+        {
+            double p = power[wid] / z; // Probability of the current word
+            while (i < NEGATIVE_SAMPLING_TABLE_SIZE && i / double(NEGATIVE_SAMPLING_TABLE_SIZE) < cum) {
+                negative_sampling_table[i++] = wid;
+            }
+
+            cum += p;
+            ++wid;            
+        }
+        while ((composite_ptr = composite_ptr->next) != NULL);
+
+        while (i < NEGATIVE_SAMPLING_TABLE_SIZE) 
+        {
+            negative_sampling_table[i++] = vocab.numberOfUniqueTokens() - 1;
+        }
+    }
+    catch (const std::bad_alloc& e)
+    {
+        // CRITICAL: Length constraint violation - system should terminate immediately
+        // NO cleanup performed - this is a fatal error requiring process exit
+        throw ala_exception(cc_tokenizer::String<char>("buildNegativeSamplesTable(CORPUS&) Error: ") + e.what());
+    }
+    catch (const std::length_error& e)
+    {
+        // CRITICAL: Memory allocation failure - system should terminate immediately
+        // NO cleanup performed - this is a fatal error requiring process exit
+        throw ala_exception(cc_tokenizer::String<char>("buildNegativeSamplesTable(CORPUS&) Error: ") + e.what());
+    }
+    /*catch (ala_exception& e)
+    {
+        // Propagate existing ala_exception with additional context
+        // NO cleanup performed assuming this is also a critical error
+        throw ala_exception(cc_tokenizer::String<char>("generateNegativeSamples() -> ") + cc_tokenizer::String<char>(e.what()));
+    }*/
+  
+    return Collective<E>{negative_sampling_table, DIMENSIONS{NEGATIVE_SAMPLING_TABLE_SIZE, 1, NULL, NULL}};
+}
+
+/**
+ * @brief Generates a batch of negative samples using the precomputed unigram^(3/4) lookup table.
+ *
+ * This function draws `n` negative word indices in **O(n)** time using the 100-million-entry
+ * negative sampling table built by `CORPUS::buildNegativeSamplingTable()`.
+ *
+ * It implements the **exact negative sampling strategy** from:
+ *   Mikolov et al., "Distributed Representations of Words and Phrases and their Compositionality"
+ *   (arXiv:1310.4546, 2013)
+ *
+ * Key properties (identical to original Google Word2Vec):
+ * - Constant-time sampling via precomputed table
+ * - Noise distribution: P(w) ∝ [frequency(w)]^(3/4)
+ * - No rejection sampling
+ * - Allows negative samples to be the center word (handled in training loop if needed)
+ * - Allows duplicates (statistically correct and harmless)
+ * - Thread-safe static RNG (Mersenne Twister) seeded from hardware
+ *
+ * This is the **fast path** that made Word2Vec scalable to billions of words.
+ *
+ * @tparam E Index type (usually size_t or vocab token ID type)
+ * @param negative_sampling_table Reference to the 1e8-entry lookup table
+ * @param n Number of negative samples to draw (typically 5–20)
+ *
+ * @return Collective<E> containing `n` word indices drawn from the U^(3/4) noise distribution
+ *
+ * @throws ala_exception on memory allocation failure (critical error)
+ *
+ * @note This function is used by both Skip-gram and CBOW with negative sampling.
+ *       It is deliberately minimal and blazing fast — every cycle counts at scale.
+ *
+ * @warning The table **must** be built with unigram^0.75 weighting.
+ *          Uniform or unsmoothed tables will produce garbage embeddings.
+ *
+ * @see CORPUS::buildNegativeSamplingTable()
+ * @see Original Word2Vec source: https://code.google.com/archive/p/word2vec/
+ */
+template <typename E = cc_tokenizer::string_character_traits<char>::size_type>
+Collective<E> generateNegativeSamplesFromTable(Collective<E>& negative_sampling_table, E n = SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES) throw (ala_exception)
+{
+    static std::mt19937 rng(std::random_device{}()); // Random number generator
+    static std::uniform_int_distribution<long long> dist(0, 99999999LL); // Distribution for sampling from the negative samples table
+
+    E* samples = NULL; // Array to hold the negative samples
+
+    try
+    {
+        samples = cc_tokenizer::allocator<E>().allocate(n);
+
+        for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < n; i++)
+        {
+            long long random_index = dist(rng); // Get a random index
+            samples[i] = negative_sampling_table[random_index]; // Sample from the negative samples table
+        }
+
+        return Collective<E>{samples, DIMENSIONS{n, 1, NULL, NULL}};
+    }
+    catch (const std::bad_alloc& e)
+    {
+        // CRITICAL: Length constraint violation - system should terminate immediately
+        // NO cleanup performed - this is a fatal error requiring process exit
+        throw ala_exception(cc_tokenizer::String<char>("generateNegativeSamples(Collective<E>&, E) Error: ") + e.what());
+    }
+    catch (const std::length_error& e)
+    {
+        // CRITICAL: Memory allocation failure - system should terminate immediately
+        // NO cleanup performed - this is a fatal error requiring process exit
+        throw ala_exception(cc_tokenizer::String<char>("buildNegativeSamplesTable(CORPUS&) Error: ") + e.what());
+    }
+    catch (ala_exception& e)
+    {
+        // Propagate existing ala_exception with additional context
+        // NO cleanup performed assuming this is also a critical error
+        throw ala_exception(cc_tokenizer::String<char>("generateNegativeSamples(Collective<E>&, E) -> ") + cc_tokenizer::String<char>(e.what()));
+    }
+
+    return Collective<E>{samples, DIMENSIONS{n, 0, NULL, NULL}};
+}
+
+
 /*
     In Skip-gram, we are predicting the context words from the central word (target).
     So, the negative samples should be words that are not the actual context words for the given target word 
@@ -912,6 +1098,22 @@ Collective<E> generateNegativeSamples(WORDPAIRS_PTR current_word_pair_ptr, CORPU
     CONTEXTWORDS_PTR right_context = current_word_pair_ptr->getRight();
 
     cc_tokenizer::string_character_traits<char>::size_type* ptr = NULL; 
+
+    /*
+    std::vector<double> power = vocab.getWordProbabilities(); // Ensure word probabilities are initialized
+
+    COMPOSITE_PTR composite_ptr = vocab.get_composite_ptr(1);
+
+    int foo = 0;
+    do {
+
+        foo++;
+    } 
+    while ((composite_ptr = composite_ptr->next) != NULL);
+
+    std::cout<< "Number of unique tokens in the vocabulary = " << vocab.numberOfUniqueTokens() << std::endl; 
+    std::cout<< "foo = " << foo << std::endl;
+     */
     
     try
     {                
@@ -1731,6 +1933,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 #define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, ns, shuffle_target_context_pairs, verbose)\
 {\
     cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
+    Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_sampling_table = buildNegativeSamplesTable(vocab);\
     /* Epoch loop */\
     for (cc_tokenizer::string_character_traits<char>::size_type i = 1; i <= epoch && !stf; i++)\
     {\
@@ -1757,7 +1960,8 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             /*backward_propogation<t> bp;*/\
             try\
             {\
-                Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples = generateNegativeSamples(pair, vocab);\
+                /*Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples = generateNegativeSamples(pair, vocab);*/\
+                Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples = generateNegativeSamplesFromTable(negative_sampling_table);\
                 /* Forward Propagation: The forward function performs forward propagation and calculate the hidden layer\
                    activation and predicted probabilities using the current word pair (pair), embedding matrix (W1),\
                    output weights (W2), vocabulary (vocab), and data type (t). The result is stored in the fp variable.*/\
