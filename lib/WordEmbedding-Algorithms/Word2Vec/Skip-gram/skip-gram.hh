@@ -503,6 +503,8 @@ struct backward_propogation
     {
         E* ptr = NULL;
 
+        //std::cout<< "iN BACKWARD_PROPOATION Constructor: " << grad_W1.getShape().getN() << ", " << grad_W2.getShape().getN() << ", " << grad_center_word.getShape().getN() << std::endl;
+
         try 
         {                    
             ptr = cc_tokenizer::allocator<E>().allocate(grad_W1.getShape().getN());
@@ -581,6 +583,9 @@ struct backward_propogation
 
         E* ptr = NULL;
 
+        //std::cout<< "ASSIGNMENT OPERATOR OVERLOADED FOR BACKWARD PROPAGATION CALLED." << std::endl;
+
+
         try 
         {
             ptr = cc_tokenizer::allocator<E>().allocate(other.grad_weights_input_to_hidden.getShape().getN());
@@ -646,6 +651,8 @@ struct backward_propogation
             throw ala_exception(cc_tokenizer::String<char>("forward_propogation::operator=() Error: ") + cc_tokenizer::String<char>(e.what()));
         }
         grad_hidden_with_respect_to_center_word = Collective<E>{ptr, other.grad_hidden_with_respect_to_center_word.getShape()};
+
+        //std::cout<< "ASSIGNMENT OPERATOR OVERLOADED FOR BACKWARD PROPAGATION CALLED." << std::endl;
 
         return *this;
     }
@@ -1382,7 +1389,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
                 The model then computes the loss using these probabilities against the actual target word(s) in the context.
              */        
         }
-        else if (negative_samples_indices.getShape().getN()) 
+        else if (ns && negative_samples_indices.getShape().getN()) 
         {   
             //T positive_negative_epoch_loss = 0;
 
@@ -1394,7 +1401,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
             
             //Collective<T> W2_positive_samples = Collective<T>{ptr, DIMENSIONS{pair->getLeft()->size() + pair->getRight()->size(), W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
 
-            cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+                /*cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());*/
 
             //cc_tokenizer::allocator<T>().deallocate(ptr, (pair->getLeft()->size() + pair->getRight()->size())*W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
 
@@ -1412,7 +1419,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
 
                     k = k + 1;
                 }*/
-
+                
                 Collective<T> u_positive_sample;
 
                 if ((*(pair->getLeft()))[i] != INDEX_NOT_FOUND_AT_VALUE)
@@ -1445,15 +1452,17 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
             
             ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
             Collective<T> W2_negative_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};                        
-            cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
+                /*cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());*/            
             ptr = NULL;
-
+            
             //Collective<T> u_negative_sample;
-
+            
             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
             {
                 for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
                 {
+                        /*std::cout<< "negative_samples_indices[i]" << negative_samples_indices[i] << std::endl;*/
+
                     W2_negative_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + negative_samples_indices[i]];
                 }
 
@@ -1467,9 +1476,9 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
                 //std::cout<< "--> fp Dimensions of u_negative_sample =  Rows" << u_negative_sample.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << u_negative_sample.getShape().getNumberOfColumns() << std::endl;
                 //std::cout<< "----> " << u_negative_sample[0] << std::endl;
             }
-
+            
             positive_negative_epoch_loss = positive_negative_epoch_loss + (positive_samples_loss + negative_samples_loss);
-
+            
             //std::cout << "=-----------------------------------------> " << positive_negative_epoch_loss << std::endl;
         }
         else
@@ -1489,7 +1498,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
     {        
         throw ala_exception(cc_tokenizer::String<char>("forward() -> ") + cc_tokenizer::String<char>(e.what()));
     }
-                   
+            
     return forward_propogation<T>(h, y_pred, u, positive_samples_loss, negative_samples_loss, positive_negative_epoch_loss);
 }
 
@@ -1553,7 +1562,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                 Creating a One-Hot Vector, using Numcy::zeros with a shape of (1, vocab.numberOfUniqueTokens()).
                 This creates a zero-filled column vector with a length equal to the vocabulary size
              */
-            oneHot = Numcy::zeros(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), 1, NULL, NULL});
+            oneHot = Numcy::zeros(DIMENSIONS{vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/, 1, NULL, NULL});
                     
             /*
                 The following code block, iterates through the context word indices (left and right) from the pair object.
@@ -1567,14 +1576,14 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
              */
             for (int i = SKIP_GRAM_WINDOW_SIZE - 1; i >= 0; i--)
             {       
-                if (((*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE) < /*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens())
+                if (((*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE) < vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/)
                 {
                     oneHot[(*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
                 }
             }
             for (int i = 0; i < SKIP_GRAM_WINDOW_SIZE; i++)
             {
-                if (((*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE) < /*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens())
+                if (((*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE) < vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/)
                 {
                     oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
                 }        
@@ -1693,7 +1702,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                 Accumulates gradients first and applies them later in a separate step.
                 ---------------------------------------------------------------------- 
              */
-            grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfTokens() /*vocab.numberOfUniqueTokens()*/, NULL, NULL});
+            grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, /*vocab.numberOfTokens()*/ vocab.numberOfUniqueTokens(), NULL, NULL});
 
             /*
                 Dimensions of grad_h is (1, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
@@ -1705,14 +1714,16 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                 grad_W1[(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i] += grad_h[i];
             }
         }
-        else if (negative_samples_indices.getShape().getN())
+        else if (ns && negative_samples_indices.getShape().getN())
         {                            
             // Backpropagation for positive sample
             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_CONTEXT_WINDOW_SIZE; i++)
             {
                 T* ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
-                Collective<T> W2_positive_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};                        
-                cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
+                Collective<T> W2_positive_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
+
+                /*cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());*/
+
                 ptr = NULL;
 
                 Collective<T> u_positive_sample;
@@ -1789,7 +1800,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             {                
                 T* ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
                 Collective<T> W2_negative_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};                        
-                cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
+                    /*cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());*/            
                 ptr = NULL;
 
                 for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
@@ -1842,9 +1853,14 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
      */ 
     //return backward_propogation<T>{grad_W1, grad_W2, Collective<T>{NULL, DIMENSIONS{0, 0, NULL, NULL}}};
 
+   //T * ptrptrptr = cc_tokenizer::allocator<T>().allocate(10);
+    //DIMENSIONS temp1 = DIMENSIONS{10, 1, NULL, NULL};
+
     DIMENSIONS temp1 = DIMENSIONS{0, 0, NULL, NULL};
     Collective<T> temp2 = Collective<T>{NULL, temp1};       
     backward_propogation<T> ret = backward_propogation<T>{grad_W1, grad_W2, temp2};
+    
+    //std::cout<< "AT THE END OF BACKWARD PROPAGATION FUNCTION" << std::endl;
 
     return ret;
 }
@@ -1960,7 +1976,6 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             /*backward_propogation<t> bp;*/\
             try\
             {\
-                /*Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples = generateNegativeSamples(pair, vocab);*/\
                 Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples = generateNegativeSamplesFromTable(negative_sampling_table);\
                 /* Forward Propagation: The forward function performs forward propagation and calculate the hidden layer\
                    activation and predicted probabilities using the current word pair (pair), embedding matrix (W1),\
@@ -1976,6 +1991,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                    embedding matrix (W1), output weights (W2), vocabulary (vocab), and data type (t).\
                    The result is stored in the bp variable. */\
                 bp = backward<t>(W1, W2, negative_samples, vocab, fp, pair, ns, false, lr);\
+                /*std::cout<< "AFTER BACKWARD" << std::endl;*/\
                 if (!ns)\
                 {\
                     /* Update Weights */\
