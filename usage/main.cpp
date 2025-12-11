@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[])
 { 
-    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed, arg_save_initial_weights, arg_lr_decay;
+    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed, arg_save_initial_weights, arg_lr_decay, arg_clip_gradients_threshold;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
     
@@ -41,6 +41,37 @@ int main(int argc, char* argv[])
     FIND_ARG(argv, argc, argsv_parser, "--random_number_generator_seed", arg_random_number_generator_seed);
     FIND_ARG(argv, argc, argsv_parser, "save_initial_weights", arg_save_initial_weights);
     FIND_ARG(argv, argc, argsv_parser, "learning_rate_scheduling", arg_lr_decay);
+    FIND_ARG(argv, argc, argsv_parser, "--clip_gradients_threshold", arg_clip_gradients_threshold);
+
+    cc_tokenizer::string_character_traits<char>::size_type number_of_negative_samples = 0;
+    if (arg_ns.i)
+    {
+        FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_ns);
+
+        if (arg_ns.argc)
+        {
+            number_of_negative_samples = atoi(argv[arg_ns.i + 1]);
+        }
+        else
+        {
+            number_of_negative_samples = SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES;
+        }
+    }
+
+    double default_clip_gradients_threshold = 0.0;
+    if (arg_clip_gradients_threshold.i)
+    {
+        FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_clip_gradients_threshold);
+
+        if (arg_clip_gradients_threshold.argc)
+        {
+            default_clip_gradients_threshold = atof(argv[arg_clip_gradients_threshold.i + 1]);
+        }
+        else
+        {
+            default_clip_gradients_threshold = SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD;
+        }
+    }
 
     if (arg_corpus.i)
     {
@@ -87,7 +118,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    double default_lr_decay = SKIP_GRAM_DEFAULT_LEARNING_RATE;
+    double default_lr_decay = 1.0; // Keep the learning rate constant throughout training
     if (arg_lr_decay.i)
     {
         FIND_ARG_BLOCK(argv, argc, argsv_parser, arg_lr_decay);
@@ -95,7 +126,7 @@ int main(int argc, char* argv[])
         if (arg_lr_decay.argc)
         {
             default_lr_decay = atof(argv[arg_lr_decay.i + 1]);
-        }
+        }    
     }
 
     /*        
@@ -233,8 +264,8 @@ int main(int argc, char* argv[])
         * By predicting surrounding context words based on the central word's embedding, Skip-gram learns to capture semantic relationships between words with similar contexts.
      */
 
-    Collective<double> W1 /*= Collective<double>{NULL, DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL}}*/;
-    Collective<double> W2 /*= Collective<double>{NULL, DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}}*/;
+    Collective<double> W_input_to_hidden /*= Collective<double>{NULL, DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL}}*/;
+    Collective<double> W_hidden_to_output /*= Collective<double>{NULL, DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}}*/;
 
     /*cc_tokenizer::String<char> W1InputFile;
     cc_tokenizer::String<char> W2InputFile;*/
@@ -245,14 +276,14 @@ int main(int argc, char* argv[])
 
         if (arg_input.argc > 1)
         {               
-            W1 = Collective<double>{NULL, DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, /*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), NULL, NULL}};
-            W2 = Collective<double>{NULL, DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}};
+            W_input_to_hidden = Collective<double>{NULL, DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/, NULL, NULL}};
+            W_hidden_to_output = Collective<double>{NULL, DIMENSIONS{vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}};
 
-            std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
-            std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "Dimensions of W1 = " << W_input_to_hidden.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_input_to_hidden.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "Dimensions of W2 = " << W_hidden_to_output.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_hidden_to_output.getShape().getNumberOfColumns() << std::endl;
 
-            READ_W_BIN(W1, cc_tokenizer::String<char>(argv[arg_input.i + 1]), double);
-            READ_W_BIN(W2, cc_tokenizer::String<char>(argv[arg_input.i + 2]), double);
+            READ_W_BIN(W_input_to_hidden, cc_tokenizer::String<char>(argv[arg_input.i + 1]), double);
+            READ_W_BIN(W_hidden_to_output, cc_tokenizer::String<char>(argv[arg_input.i + 2]), double);
 
             //W1InputFile = cc_tokenizer::String<char>(argv[arg_input.i + 1]);
             //W2InputFile = cc_tokenizer::String<char>(argv[arg_input.i + 2]);
@@ -288,16 +319,16 @@ int main(int argc, char* argv[])
             /*
                 The weights 𝑊1 and 𝑊2​ are initialized using random values drawn from a normal distribution, which is typical for training embeddings in skip-gram models. This approach prevents symmetry and allows gradients to flow during backpropagation.
              */
-            W1 = Numcy::Random::randn<double>(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfTokens() /*vocab.numberOfUniqueTokens()*/ , NULL, NULL}, default_random_number_generator_seed);
-            W2 = Numcy::Random::randn<double>(DIMENSIONS{/*vocab.numberOfUniqueTokens()*/ vocab.numberOfTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}, default_random_number_generator_seed, AXIS_COLUMN);
+            W_input_to_hidden = Numcy::Random::randn<double>(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, /*vocab.numberOfTokens()*/ vocab.numberOfUniqueTokens(), NULL, NULL}, default_random_number_generator_seed);
+            W_hidden_to_output = Numcy::Random::randn<double>(DIMENSIONS{vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}, default_random_number_generator_seed, AXIS_COLUMN);
             
-            std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
-            std::cout<< "Dimensions of W2 = " << W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W2.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "Dimensions of W1 = " << W_input_to_hidden.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_input_to_hidden.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "Dimensions of W2 = " << W_hidden_to_output.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_hidden_to_output.getShape().getNumberOfColumns() << std::endl;
 
             if (arg_save_initial_weights.i)
             {
-                WRITE_W_BIN(W1, cc_tokenizer::String<char>("W1_initial_weights.dat"), double);
-                WRITE_W_BIN(W2, cc_tokenizer::String<char>("W2_initial_weights.dat"), double);
+                WRITE_W_BIN(W_input_to_hidden, cc_tokenizer::String<char>("W1_initial_weights.dat"), double);
+                WRITE_W_BIN(W_hidden_to_output, cc_tokenizer::String<char>("W2_initial_weights.dat"), double);
             }            
         }
         catch (ala_exception& e)
@@ -308,8 +339,8 @@ int main(int argc, char* argv[])
 
     if (arg_save_initial_weights.i)
     {
-        WRITE_W1_TO_TEXT_FILE(W1, INITIAL_W1_WEIGHT_TXT_FILE, vocab);
-        WRITE_W2_TO_TEXT_FILE(W2, INITIAL_W2_WEIGHT_TXT_FILE, vocab);
+        WRITE_W1_TO_TEXT_FILE(W_input_to_hidden, INITIAL_W1_WEIGHT_TXT_FILE, vocab);
+        WRITE_W2_TO_TEXT_FILE(W_input_to_hidden, W_hidden_to_output, INITIAL_W2_WEIGHT_TXT_FILE, vocab);
     }    
 
     bool stop_training_flag = false;
@@ -361,9 +392,9 @@ int main(int argc, char* argv[])
     /* Start training. */
     for (long i = 0; i < default_loop && !stop_training_flag; i++)
     {
-        SKIP_GRAM_TRAINING_LOOP(default_epoch, W1, W2, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_lr_decay, default_rs, double, stop_training_flag, arg_ns.i ? true : false, arg_shuffle_target_context_pairs.i ? true : false, arg_verbose.i ? true : false);
+        SKIP_GRAM_TRAINING_LOOP(default_epoch, W_input_to_hidden, W_hidden_to_output, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_lr_decay, default_rs, double, stop_training_flag, /*arg_ns.i ? true : false*/ number_of_negative_samples, default_clip_gradients_threshold, arg_shuffle_target_context_pairs.i ? true : false, arg_verbose.i ? true : false);
     }
-
+    
     /* 
         --------------------------------------
        ||  We need to store the weights now  ||
@@ -372,11 +403,11 @@ int main(int argc, char* argv[])
 
     std::cout<< "Trained input weights written to file: " << /*TRAINED_INPUT_WEIGHTS_FILE_NAME*/ W1OutPutFile.c_str() << std::endl;
                                  
-    WRITE_W_BIN(W1, W1OutPutFile.c_str(), double);
+    WRITE_W_BIN(W_input_to_hidden, W1OutPutFile.c_str(), double);
      
     std::cout<< "Trained output weights written to file: " << /*TRAINED_OUTPUT_WEIGHTS_FILE_NAME*/ W2OutPutFile.c_str() << std::endl;
             
-    WRITE_W_BIN(W2, W2OutPutFile.c_str(), double);
+    WRITE_W_BIN(W_hidden_to_output, W2OutPutFile.c_str(), double);
                    
     return 0;
 }

@@ -782,7 +782,7 @@ void clip_gradients(Collective<E>& grad, AXIS axis = AXIS_NONE, E threshold = SK
 
                 if (norm[0] > threshold)
                 {
-                    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < norm.getShape().getN(); i++)
+                    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < grad.getShape().getN() /*norm.getShape().getN()*/; i++)
                     {
                         grad[i] = grad[i] * (threshold/norm[0]);
                     }
@@ -1001,7 +1001,7 @@ Collective<E> buildNegativeSamplesTable (CORPUS& vocab) throw (ala_exception)
  * @see Original Word2Vec source: https://code.google.com/archive/p/word2vec/
  */
 template <typename E = cc_tokenizer::string_character_traits<char>::size_type>
-Collective<E> generateNegativeSamplesFromTable(Collective<E>& negative_sampling_table, E n = SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES) throw (ala_exception)
+Collective<E> generateNegativeSamplesFromTable(Collective<E>& negative_sampling_table, E n) throw (ala_exception)
 {
     static std::mt19937 rng(std::random_device{}()); // Random number generator
     static std::uniform_int_distribution<long long> dist(0, 99999999LL); // Distribution for sampling from the negative samples table
@@ -1268,7 +1268,7 @@ Collective<T> softmax(Collective<T>& a, bool verbose = false) throw (ala_excepti
     - Handles negative samples if `ns` is set to true, ensuring correct gradient calculations for the Skip-gram model.
 */
 template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
-forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, WORDPAIRS_PTR pair, bool ns = false, bool verbose = false) throw (ala_exception)
+forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, WORDPAIRS_PTR pair, bool verbose = false) throw (ala_exception)
 {
     if (pair->getCenterWord() > W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
     {
@@ -1325,7 +1325,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
                 //u_positive_samples = Numcy::dot(h, W2);  
         /*std::cout<< "--> Dimensions of u = " << u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << u.getShape().getNumberOfColumns() << std::endl;*/
 
-        if (!ns)
+        if (negative_samples_indices.getShape().getN() == 0)
         {
             /*T* W2_sample_ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); i++)
@@ -1389,7 +1389,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
                 The model then computes the loss using these probabilities against the actual target word(s) in the context.
              */        
         }
-        else if (ns && negative_samples_indices.getShape().getN()) 
+        else if (negative_samples_indices.getShape().getN() > 0) 
         {   
             //T positive_negative_epoch_loss = 0;
 
@@ -1503,7 +1503,7 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
 }
 
 template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
-backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, forward_propogation<T>& fp, WORDPAIRS_PTR pair, bool ns = false, bool verbose = false, T learning_rate = SKIP_GRAM_DEFAULT_LEARNING_RATE) throw (ala_exception)
+backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, forward_propogation<T>& fp, WORDPAIRS_PTR pair, bool verbose = false, T learning_rate = SKIP_GRAM_DEFAULT_LEARNING_RATE) throw (ala_exception)
 {
     if (pair->getCenterWord() > W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
     {
@@ -1556,7 +1556,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
         /*std::cout<< "h(fp.hidden_layer_vector) Columns = " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << ", Rows = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;*/
         
-        if (!ns)
+        if (negative_samples_indices.getShape().getN() == 0)
         {            
             /*
                 Creating a One-Hot Vector, using Numcy::zeros with a shape of (1, vocab.numberOfUniqueTokens()).
@@ -1636,7 +1636,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
                 grad_W2 has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, len((vocab with redundency) columns)
               */
-             grad_W2 =  Numcy::dot(h_transpose, grad_u);
+             grad_W2 = Numcy::dot(h_transpose, grad_u);
              
              // Update gradients for positive samples
              //W2 = W2 + grad_W2;                          
@@ -1714,8 +1714,12 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                 grad_W1[(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i] += grad_h[i];
             }
         }
-        else if (ns && negative_samples_indices.getShape().getN())
-        {                            
+        else if (negative_samples_indices.getShape().getN() > 0)
+        {   
+            // Initialize gradient accumulators
+            grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
+            grad_W2 = Numcy::zeros(DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL});
+                        
             // Backpropagation for positive sample
             for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_CONTEXT_WINDOW_SIZE; i++)
             {
@@ -1750,16 +1754,30 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
                     //W2[:, context_word_index] -= learning_rate * grad_W2_positive[:, 0]
 
-                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W2*/grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
                     {
-                        W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] - learning_rate*grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];
+                        // Commented this line to accumulate gradients first and apply them later
+                        /*W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] - learning_rate*grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];*/
+
+                        grad_W2[j*grad_W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] += /*learning_rate**/grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0]; 
                     }
 
                     Collective<T> product = Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector);
 
-                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W1*/grad_W1.getShape().getNumberOfColumns(); j++)
                     {
-                        W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - learning_rate*product[j];
+                        // Commented this line to accumulate gradients first and apply them later
+                        /*W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - learning_rate*product[j];*/
+
+                        /*if (!(grad_W1.getShape() == W1.getShape()))
+                        {
+                             std::cout<< "They both are not same" << std::endl;
+
+                            std::cout<< "Dimensions of W1 = " << W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W1.getShape().getNumberOfColumns() << std::endl;
+                            std::cout<< "Dimensions of grad_W1 = " << grad_W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W1.getShape().getNumberOfColumns() << std::endl;
+                        }*/
+                    
+                        grad_W1[grad_W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] -= /*learning_rate**/product[j];
                     }
 
                     //std::cout<< "Dimensions of Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector) ROWS = " << Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector).getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector).getShape().getNumberOfColumns() << std::endl;                    
@@ -1782,16 +1800,22 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                     
                     //positive_samples_loss = positive_samples_loss + std::log(Numcy::sigmoid(u_positive_sample)[0])*(-1);
 
-                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W2*/grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
                     {
-                        W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] - learning_rate*grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];
+                        // Commented this line to accumulate gradients first and apply them later
+                        /*W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] - learning_rate*grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];*/
+
+                        grad_W2[j*grad_W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] /*-=*/ += /*learning_rate**/grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];
                     }
 
                     Collective<T> product = Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector);
 
-                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W1*/grad_W1.getShape().getNumberOfColumns(); j++)
                     {
-                        W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - learning_rate*product[j];
+                        // Commented this line to accumulate gradients first and apply them later
+                        /*W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - learning_rate*product[j];*/
+
+                        grad_W1[grad_W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] -= /*learning_rate**/product[j];
                     }
                 }
             }
@@ -1810,22 +1834,30 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
                 Collective<T> u_negative_sample = Numcy::dot(fp.hidden_layer_vector, W2_negative_sample); 
 
-                u_negative_sample = u_negative_sample*((T)-1);
-
-                Collective<T> grad_u_negative_sample = Numcy::sigmoid(u_negative_sample) - 1;
+                /*u_negative_sample = u_negative_sample*((T)-1);*/
+                Collective<T> grad_u_negative_sample = Numcy::sigmoid(u_negative_sample) /*- 1*/;
 
                 Collective<T> grad_W2_negative_sample = Numcy::outer(fp.hidden_layer_vector, grad_u_negative_sample);
 
-                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W2*/grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
                 {
-                    W2[j*W2.getShape().getNumberOfColumns() + i] = W2[j*W2.getShape().getNumberOfColumns() + i] - learning_rate*grad_W2_negative_sample[j*grad_W2_negative_sample.getShape().getNumberOfColumns() + 0];
+                    // Commented this line to accumulate gradients first and apply them later
+                    /*W2[j*W2.getShape().getNumberOfColumns() + i] = W2[j*W2.getShape().getNumberOfColumns() + i] - learning_rate*grad_W2_negative_sample[j*grad_W2_negative_sample.getShape().getNumberOfColumns() + 0];*/
+
+                    grad_W2[j*grad_W2.getShape().getNumberOfColumns() + negative_samples_indices[i]] += /*learning_rate**/grad_W2_negative_sample[j*grad_W2_negative_sample.getShape().getNumberOfColumns() + 0];
                 }
 
                 Collective<T> product = Numcy::dot(grad_u_negative_sample, fp.hidden_layer_vector);
 
-                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W1.getShape().getNumberOfColumns(); j++)
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W1*/grad_W1.getShape().getNumberOfColumns(); j++)
                 {
-                    W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - learning_rate*product[j];
+                    // Commented this line to accumulate gradients first and apply them later
+                    /*W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - learning_rate*product[j];*/
+
+                    // Bug 2: The line below was incorrectly subtracting the product instead of adding it.
+                    //grad_W1[grad_W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] -= /*learning_rate**/product[j];
+
+                    grad_W1[grad_W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] += grad_u_negative_sample[0] * W2_negative_sample[j];
                 }
             }
         }
@@ -1942,11 +1974,13 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
     @lr_decay, learning rate decay, also known as learning rate scheduling. If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1.
     @rs, regulirazation strength. To prevent the model over-learning from the data
     @t, data type. Used as argument to templated types and functions
-    @stf, Stop Training Flag, when set to true all training loops are stoped
-    @ns, Negative sampling flag. When this flag is true, the code related to negative sampling gets activated
+    @stf, Stop Training Flag, when set to true all training loops are stoped    
+    @nns, Number of Negative Samples. The number of negative samples to generate for each positive word pair during training
+    @default_clip_gradients_threshold, default threshold value for gradient clipping to prevent exploding gradients
+    @shuffle_target_context_pairs, when true shuffles the training data (word pairs) before each epoch to avoid biases in weight updates
     @verbose, when true puts more text on screen to help debug code    
  */
-#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, ns, shuffle_target_context_pairs, verbose)\
+#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, nns, default_clip_gradients_threshold, shuffle_target_context_pairs, verbose)\
 {\
     cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
     Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_sampling_table = buildNegativeSamplesTable(vocab);\
@@ -1962,6 +1996,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
         }\
         forward_propogation<t> fp;\
         backward_propogation<t> bp;\
+        Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples;\
         /* Shuffle Word Pairs: Shuffles the training data (word pairs) before each epoch to avoid biases in weight updates */\
         if (shuffle_target_context_pairs)\
         {\
@@ -1976,12 +2011,12 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             /*backward_propogation<t> bp;*/\
             try\
             {\
-                Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples = generateNegativeSamplesFromTable(negative_sampling_table);\
+                /*Collective<cc_tokenizer::string_character_traits<char>::size_type>*/ negative_samples = generateNegativeSamplesFromTable(negative_sampling_table, nns);\
                 /* Forward Propagation: The forward function performs forward propagation and calculate the hidden layer\
                    activation and predicted probabilities using the current word pair (pair), embedding matrix (W1),\
                    output weights (W2), vocabulary (vocab), and data type (t). The result is stored in the fp variable.*/\
-                fp = forward<t>(W1, W2, negative_samples, vocab, pair, ns);\
-                if(ns && verbose)\
+                fp = forward<t>(W1, W2, negative_samples, vocab, pair);\
+                if(nns && verbose)\
                 {\
                     std::cout<< "This pair positive samples loss = " << fp.positive_samples_loss << ", and Negative samples loss = " << fp.negative_samples_loss << std::endl;\
                     el = el + fp.positive_negative_epoch_loss;\
@@ -1990,9 +2025,14 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                    with respect to the input and output layer weights using the forward propagation results (fp), word pair (pair),\
                    embedding matrix (W1), output weights (W2), vocabulary (vocab), and data type (t).\
                    The result is stored in the bp variable. */\
-                bp = backward<t>(W1, W2, negative_samples, vocab, fp, pair, ns, false, lr);\
+                bp = backward<t>(W1, W2, negative_samples, vocab, fp, pair, false, lr);\
+                if (default_clip_gradients_threshold > 0)\
+                {\
+                    clip_gradients(bp.grad_weights_input_to_hidden, /*AXIS_ROWS*/ AXIS_NONE, default_clip_gradients_threshold);\
+                    clip_gradients(bp.grad_weights_hidden_to_output, /*AXIS_COLUMN*/ AXIS_NONE, default_clip_gradients_threshold);\
+                }\
                 /*std::cout<< "AFTER BACKWARD" << std::endl;*/\
-                if (!ns)\
+                if (!nns)\
                 {\
                     /* Update Weights */\
                     if (rs == 0)\
@@ -2031,11 +2071,11 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                     el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
                     /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
                 }\
-                if (ns)\
-                {\
-                    clip_gradients(W1, AXIS_ROWS);\
-                    clip_gradients(W2, AXIS_COLUMN);\
-                }\
+                /*if (nns)*/\
+                /*{*/\
+                    /*clip_gradients(W1, AXIS_ROWS);*/\
+                    /*clip_gradients(W2, AXIS_COLUMN);*/\
+                /*}*/\
             }\
             catch (ala_exception& e)\
             {\
@@ -2045,7 +2085,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
         }\
         if (!stf)\
         {\
-            if (!ns)\
+            if (!nns)\
             {\
                 if (el_previous == 0 || el < el_previous)\
                 {\
