@@ -1503,6 +1503,788 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
 }
 
 template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
+backward_propogation<T> backward_2(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, forward_propogation<T>& fp, WORDPAIRS_PTR pair, bool verbose = false, T learning_rate = SKIP_GRAM_DEFAULT_LEARNING_RATE) throw (ala_exception)
+{
+    // Bounds check for Center Word
+    if (pair->getCenterWord() > W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
+    {
+        throw ala_exception("backward() Error: Index of center word is out of bounds of W1.");
+    }
+
+    /* -------------------------------------------------------------------------
+       Output Gradient Containers
+       grad_W1: Shape (Vocab x Dimensions) -> Row-Major, Center Word Gradients
+       grad_W2: Shape (Dimensions x Vocab) -> Row-Major, Context Word Gradients
+       ------------------------------------------------------------------------- */
+    Collective<T> grad_W1;
+    Collective<T> grad_W2;
+
+    try 
+    {
+        /* =========================================================================
+           BRANCH 1: SOFTMAX (Full Vocabulary)
+           Use this when negative_samples_indices is empty
+           ========================================================================= */
+        if (negative_samples_indices.getShape().getN() == 0)
+        {            
+            /* 1. Create One-Hot Vector for Context (Target) */
+            // Shape: (1 x Vocab)
+            Collective<T> oneHot = Numcy::zeros(DIMENSIONS{vocab.numberOfUniqueTokens(), 1, NULL, NULL});
+                    
+            // Mark Left Context Words
+            for (int i = SKIP_GRAM_WINDOW_SIZE - 1; i >= 0; i--)
+            {       
+                if (((*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE) < vocab.numberOfUniqueTokens())
+                {
+                    oneHot[(*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
+                }
+            }
+            // Mark Right Context Words
+            for (int i = 0; i < SKIP_GRAM_WINDOW_SIZE; i++)
+            {
+                if (((*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE) < vocab.numberOfUniqueTokens())
+                {
+                    oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
+                }        
+            }
+
+            /* 2. Calculate Prediction Error (grad_u) */
+            // grad_u = y_pred - y_true
+            // Shape: (1 x Vocab)
+            Collective<T> grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
+            
+            /* 3. Calculate Gradient for W2 (Context Weights) */
+            // Math: grad_W2 = h^T * grad_u
+            // h_transpose: (Dimensions x 1)
+            // grad_u:      (1 x Vocab)
+            // Result:      (Dimensions x Vocab)
+            Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);
+            grad_W2 = Numcy::dot(h_transpose, grad_u);
+        
+            /* 4. Calculate Gradient for W1 (Center Word) */
+            // Math: grad_h = grad_u * W2^T
+            // Result: (1 x Dimensions)
+            Collective<T> W2_T = Numcy::transpose(W2);
+            Collective<T> grad_h = Numcy::dot(grad_u, W2_T);
+
+            /* 5. Initialize grad_W1 container */
+            // Shape: (Vector_Size x Vocab) -- Note: Dimensions might differ based on your Numcy logic, 
+            // but standard W1 is (Vocab x Dimensions).
+            grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
+
+            // Update center word gradient row
+            cc_tokenizer::string_character_traits<char>::size_type center_word_offset = (pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) * SKIP_GRAM_EMBEDDNG_VECTOR_SIZE;
+            
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; i++)
+            {
+                grad_W1[center_word_offset + i] += grad_h[i];
+            }
+        }
+        
+        /* =========================================================================
+           BRANCH 2: NEGATIVE SAMPLING (Sparse Update)
+           Use this when negative_samples_indices has data
+           ========================================================================= */
+        else if (negative_samples_indices.getShape().getN() > 0)
+        {   
+            /* 1. Initialize Gradients with correct shapes (Matching Softmax Dimensions) */
+            // grad_W1: (Vocab x EmbeddingSize) -> Although DIMENSIONS arg order depends on your Numcy impl.
+            grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
+            
+            // grad_W2: (EmbeddingSize x Vocab)
+            grad_W2 = Numcy::zeros(DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL});
+                        
+            /* 2. PERFORMANCE FIX: Allocate temp vector ONCE outside loops */
+            T* ptr_temp = cc_tokenizer::allocator<T>().allocate(SKIP_GRAM_EMBEDDNG_VECTOR_SIZE);
+            Collective<T> temp_vec_context = Collective<T>{ptr_temp, DIMENSIONS{1, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}};
+            
+            /* Helper: Offset for Center Word in W1 */
+            cc_tokenizer::string_character_traits<char>::size_type center_word_idx = pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE;
+            cc_tokenizer::string_character_traits<char>::size_type center_word_offset = center_word_idx * SKIP_GRAM_EMBEDDNG_VECTOR_SIZE;
+
+            /* ---------------------------------------------------------------------
+               A. Positive Samples Backprop
+               --------------------------------------------------------------------- */
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_CONTEXT_WINDOW_SIZE; i++)
+            {
+                // Check Left and Right Context
+                cc_tokenizer::string_character_traits<char>::size_type context_indices[2] = {
+                    (*(pair->getLeft()))[i], 
+                    (*(pair->getRight()))[i]
+                };
+
+                for(int ctx = 0; ctx < 2; ctx++) 
+                {
+                    cc_tokenizer::string_character_traits<char>::size_type target_idx = context_indices[ctx];
+
+                    if (target_idx != INDEX_NOT_FOUND_AT_VALUE)
+                    {
+                        target_idx -= INDEX_ORIGINATES_AT_VALUE; // Normalize index
+
+                        // Load W2 (Context Vector) into temp array [No Allocation Here!]
+                        for (int d = 0; d < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; d++)
+                        {
+                            // Access W2 as (Dimensions x Vocab) -> row * num_cols + col
+                            // Assuming W2 is (Dims x Vocab) row-major:
+                            temp_vec_context[d] = W2[d * vocab.numberOfUniqueTokens() + target_idx];
+                        }
+
+                        // Calculate Error: (sigmoid(h . v_c) - 1)
+                        Collective<T> u_val = Numcy::dot(fp.hidden_layer_vector, temp_vec_context);
+                        T grad_scalar = Numcy::sigmoid(u_val)[0] - 1.0; 
+
+                        // Accumulate Gradients
+                        for (int d = 0; d < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; d++)
+                        {
+                            // Update W2 (Context): gradient = scalar * h
+                            grad_W2[d * vocab.numberOfUniqueTokens() + target_idx] += grad_scalar * fp.hidden_layer_vector[d];
+
+                            // Update W1 (Center): gradient = scalar * v_c
+                            // MATH FIX: Using temp_vec_context instead of hidden_layer_vector
+                            grad_W1[center_word_offset + d] += grad_scalar * temp_vec_context[d];
+                        }
+                    }
+                }
+            }
+
+            /* ---------------------------------------------------------------------
+               B. Negative Samples Backprop
+               --------------------------------------------------------------------- */
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
+            {                
+                cc_tokenizer::string_character_traits<char>::size_type neg_idx = negative_samples_indices[i]; // Already normalized usually? Or need ORIGIN check?
+                
+                // Load Negative Context Vector
+                for (int d = 0; d < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; d++)
+                {
+                    temp_vec_context[d] = W2[d * vocab.numberOfUniqueTokens() + neg_idx];
+                }
+
+                // Calculate Error: sigmoid(h . v_neg)
+                Collective<T> u_val = Numcy::dot(fp.hidden_layer_vector, temp_vec_context); 
+                T grad_scalar = Numcy::sigmoid(u_val)[0]; // Prediction - 0 (Label)
+
+                // Accumulate Gradients
+                for (int d = 0; d < SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; d++)
+                {
+                    // Update W2 (Context)
+                    grad_W2[d * vocab.numberOfUniqueTokens() + neg_idx] += grad_scalar * fp.hidden_layer_vector[d];
+
+                    // Update W1 (Center)
+                    // MATH FIX: Using temp_vec_context
+                    grad_W1[center_word_offset + d] += grad_scalar * temp_vec_context[d];
+                }
+            }
+            
+            /* Clean up temporary pointer manually if your allocator requires it, 
+               otherwise handled by Collective destructor if it owns the ptr */
+            // ptr_temp = NULL; // Prevent double free if Collective handles it
+        }
+        else
+        {            
+            throw ala_exception("The array containing indices of negative samples is empty.");        
+        }
+    }
+    catch (std::bad_alloc& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+    catch (std::length_error& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+    catch (ala_exception& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+
+    // Return the gradients
+    DIMENSIONS temp1 = DIMENSIONS{0, 0, NULL, NULL};
+    Collective<T> temp2 = Collective<T>{NULL, temp1};       
+    backward_propogation<T> ret = backward_propogation<T>{grad_W1, grad_W2, temp2};
+    
+    return ret;
+}
+
+template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
+backward_propogation<T> backward_1(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, forward_propogation<T>& fp, WORDPAIRS_PTR pair, bool verbose = false, T learning_rate = SKIP_GRAM_DEFAULT_LEARNING_RATE) throw (ala_exception)
+{
+    // 1. Safety Check
+    if (pair->getCenterWord() > W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
+    {
+        throw ala_exception("backward() Error: Index of center word is out of bounds of W1.");
+    }
+
+    // 2. Define Dimension Constants for clearer indexing
+    const auto VECTOR_SIZE = SKIP_GRAM_EMBEDDNG_VECTOR_SIZE;
+    const auto VOCAB_SIZE = vocab.numberOfUniqueTokens();
+    const auto W2_COLS = W2.getShape().getNumberOfColumns(); // Should match VOCAB_SIZE if W2 is (D x V)
+
+    // 3. Initialize Gradients with Zeros
+    // grad_W1 shape: (Vocab Rows, Vector Cols) - Same as W1
+    Collective<T> grad_W1 = Numcy::zeros(DIMENSIONS{VOCAB_SIZE, VECTOR_SIZE, NULL, NULL});
+    
+    // grad_W2 shape: (Vector Rows, Vocab Cols) - Same as W2
+    Collective<T> grad_W2 = Numcy::zeros(DIMENSIONS{VECTOR_SIZE, VOCAB_SIZE, NULL, NULL});
+
+    try 
+    {
+        // =========================================================
+        // MODE A: SOFTMAX (No Negative Sampling)
+        // =========================================================
+        if (negative_samples_indices.getShape().getN() == 0)
+        {            
+            Collective<T> oneHot = Numcy::zeros(DIMENSIONS{VOCAB_SIZE, 1, NULL, NULL});
+            
+            // Build One-Hot Vector from Context
+            for (int i = 0; i < SKIP_GRAM_WINDOW_SIZE; i++)
+            {       
+                if ((*(pair->getLeft()))[i] != INDEX_NOT_FOUND_AT_VALUE && ((*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE) < VOCAB_SIZE)
+                    oneHot[(*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
+
+                if ((*(pair->getRight()))[i] != INDEX_NOT_FOUND_AT_VALUE && ((*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE) < VOCAB_SIZE)
+                    oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;       
+            }
+
+            // Calculate Gradient of Score (Prediction - Target)
+            Collective<T> grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
+            
+            // Calculate grad_W2 = h_transpose * grad_u
+            // This is an Outer Product: (D x 1) * (1 x V) -> (D x V)
+            Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);
+            Collective<T> calculated_grad_W2 = Numcy::dot(h_transpose, grad_u);
+
+            // Accumulate into main grad_W2 holder
+            // Assuming calculated_grad_W2 has linear layout compatible with grad_W2
+            for(size_t k=0; k < (VECTOR_SIZE * VOCAB_SIZE); k++) {
+                grad_W2[k] += calculated_grad_W2[k];
+            }
+
+            // Calculate grad_W1 (Center Word Update)
+            // Error propagated back to hidden layer: grad_h = grad_u * W2_Transpose
+            Collective<T> W2_T = Numcy::transpose(W2);
+            Collective<T> grad_h = Numcy::dot(grad_u, W2_T);
+
+            // Update only the row corresponding to the Center Word
+            size_t center_word_idx = pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE;
+            for (size_t i = 0; i < VECTOR_SIZE; i++)
+            {
+                grad_W1[center_word_idx * VECTOR_SIZE + i] += grad_h[i];
+            }
+        }
+        // =========================================================
+        // MODE B: NEGATIVE SAMPLING (Optimized)
+        // =========================================================
+        else 
+        {   
+            // PERFORMANCE: Allocate temporary vector ONCE outside the loop to avoid malloc/free spam
+            T* raw_ptr = cc_tokenizer::allocator<T>().allocate(VECTOR_SIZE);
+            Collective<T> temp_vec_context = Collective<T>{raw_ptr, DIMENSIONS{VECTOR_SIZE, 1, NULL, NULL}};
+
+            // --- 1. POSITIVE SAMPLES ---
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_CONTEXT_WINDOW_SIZE; i++)
+            {
+                // Helper lambda or macro could clean this up, but keeping it explicit for C++98/03 compat if needed
+                cc_tokenizer::string_character_traits<char>::size_type indices[2];
+                indices[0] = (*(pair->getLeft()))[i];
+                indices[1] = (*(pair->getRight()))[i];
+
+                for(int side = 0; side < 2; side++) 
+                {
+                    auto target_idx = indices[side];
+                    if (target_idx == INDEX_NOT_FOUND_AT_VALUE) continue;
+                    
+                    target_idx = target_idx - INDEX_ORIGINATES_AT_VALUE;
+                    if (target_idx >= VOCAB_SIZE) continue; // Safety
+
+                    // Load W2 column into temp vector (No Allocation)
+                    for(int d = 0; d < VECTOR_SIZE; d++) {
+                        temp_vec_context[d] = W2[d * W2_COLS + target_idx];
+                    }
+
+                    // Forward: u = h . v_c
+                    Collective<T> u_res = Numcy::dot(fp.hidden_layer_vector, temp_vec_context);
+                    
+                    // Backward: Error = Sigmoid(u) - 1 (Because label is 1)
+                    T error_scalar = Numcy::sigmoid(u_res)[0] - 1.0;
+
+                    // Accumulate Gradients
+                    // dL/dW2 = h * error
+                    // dL/dW1 = v_c * error
+                    size_t center_idx = pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE;
+                    
+                    for(int d = 0; d < VECTOR_SIZE; d++) 
+                    {
+                        // Update Context (W2) Gradient
+                        grad_W2[d * W2_COLS + target_idx] += error_scalar * fp.hidden_layer_vector[d];
+
+                        // Update Center (W1) Gradient [CORRECTED MATH]
+                        grad_W1[center_idx * VECTOR_SIZE + d] += error_scalar * temp_vec_context[d];
+                    }
+                }
+            }
+
+            // --- 2. NEGATIVE SAMPLES ---
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
+            {                
+                auto neg_idx = negative_samples_indices[i];
+                if (neg_idx >= VOCAB_SIZE) continue;
+
+                // Load W2 column (No Allocation)
+                for(int d = 0; d < VECTOR_SIZE; d++) {
+                    temp_vec_context[d] = W2[d * W2_COLS + neg_idx];
+                }
+
+                // Forward: u = h . v_neg
+                Collective<T> u_res = Numcy::dot(fp.hidden_layer_vector, temp_vec_context);
+                
+                // Backward: Error = Sigmoid(u) - 0 (Because label is 0)
+                T error_scalar = Numcy::sigmoid(u_res)[0];
+
+                // Accumulate Gradients
+                size_t center_idx = pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE;
+
+                for(int d = 0; d < VECTOR_SIZE; d++) 
+                {
+                    // Update Context (W2) Gradient
+                    grad_W2[d * W2_COLS + neg_idx] += error_scalar * fp.hidden_layer_vector[d];
+
+                    // Update Center (W1) Gradient [CORRECTED MATH]
+                    grad_W1[center_idx * VECTOR_SIZE + d] += error_scalar * temp_vec_context[d];
+                }
+            }
+
+            // Clean up the manual allocation
+            // Note: If Collective destructor handles deallocation of its ptr, set raw_ptr to NULL first if needed.
+            // Assuming standard allocator behavior:
+            cc_tokenizer::allocator<T>().deallocate(raw_ptr, VECTOR_SIZE);
+            //temp_vec_context.setPtr(NULL); // Prevent double free if Collective dtor tries to free
+        }
+    }
+    catch (std::bad_alloc& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+    catch (std::length_error& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+    catch (ala_exception& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+
+    // Return the gradients and a dummy/empty Collective for the 3rd argument if required by struct
+    DIMENSIONS empty_dim = DIMENSIONS{0, 0, NULL, NULL};
+    Collective<T> empty_coll = Collective<T>{NULL, empty_dim};       
+    return backward_propogation<T>{grad_W1, grad_W2, empty_coll};
+}
+
+
+
+template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
+backward_propogation<T> backward_trial_and_error_does_not_word(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, forward_propogation<T>& fp, WORDPAIRS_PTR pair, bool verbose = false, T learning_rate = SKIP_GRAM_DEFAULT_LEARNING_RATE) throw (ala_exception)
+{
+    if (pair->getCenterWord() > W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
+    {
+        throw ala_exception("backward() Error: Index of center word is out of bounds of W1.");
+    }
+
+    /* The hot one array is row vector, and has shape (1, vocab.len = REPLIKA_VOCABULARY_LENGTH a.k.a no redundency) */
+    Collective<T> oneHot;
+    /* 
+        Gradient for the positive sample.
+        The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1, len(vocab) without redundency) 
+     */
+    Collective<T> grad_u;
+    /*
+        Dimensions of grad_u is (1, len(vocab) without redundency)
+        Dimensions of fp.intermediate_activation (1, len(vocab) without redundency)
+
+        Dimensions of grad_W2 is (len(vocab) without redundency, len(vocab) without redundency)        
+     */
+    Collective<T> grad_W2;
+    /*
+        Dimensions of W2 is (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, len(vocab) without redundency)
+        Dimensions of W2_T is (len(vocab) without redundency, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)        
+     */
+    Collective<T> W2_T;
+    /*
+       Dimensions of grad_u is (1, len(vocab) without redundency)
+       Dimensions of W2_T is (len(vocab) without redundency, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+
+       Dimensions of grad_h is (1, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+     */
+    Collective<T> grad_h;
+    /*
+        Dimensions of grad_W1 is (len(vocab) without redundency, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+     */
+    Collective<T> grad_W1;
+
+    Collective<T> grad_u_negative_samples;
+    Collective<T> grad_W2_negative_samples;
+
+    /* Neative sampling */
+            
+    try 
+    {
+        //std::cout<< "-> Columns = " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << ", Rows = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+        /*
+            h_transpose has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, 1 column)
+         */
+        Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);
+
+        /*std::cout<< "h(fp.hidden_layer_vector) Columns = " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << ", Rows = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;*/
+        
+        if (negative_samples_indices.getShape().getN() == 0)
+        {            
+            /*
+                Creating a One-Hot Vector, using Numcy::zeros with a shape of (1, vocab.numberOfUniqueTokens()).
+                This creates a zero-filled column vector with a length equal to the vocabulary size
+             */
+            oneHot = Numcy::zeros(DIMENSIONS{vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/, 1, NULL, NULL});
+                    
+            /*
+                The following code block, iterates through the context word indices (left and right) from the pair object.
+                For each valid context word index (i), it sets the corresponding element in the oneHot vector to 1.
+                This effectively creates a one-hot encoded representation of the context words.
+            
+                Note: We are only handling unique tokens. Therefore, in some cases,
+                the number of one-hot encoded vectors may be less than the total number
+                of context words. This occurs when a single one-hot vector represents 
+                multiple occurrences of the same token within the context.            
+             */
+            for (int i = SKIP_GRAM_WINDOW_SIZE - 1; i >= 0; i--)
+            {       
+                if (((*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE) < vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/)
+                {
+                    oneHot[(*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
+                }
+            }
+            for (int i = 0; i < SKIP_GRAM_WINDOW_SIZE; i++)
+            {
+                if (((*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE) < vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/)
+                {
+                    oneHot[(*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = 1;
+                }        
+            }
+            
+            /*           
+                Note: We are only handling unique tokens. Therefore, in some cases,
+                the number of one-hot encoded vectors may be less than the total number
+                of context words. This occurs when a single one-hot vector represents 
+                multiple occurrences of the same token within the context.
+
+                for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
+                {
+                    if (oneHot[i] == 1)
+                    {
+                        std::cout<< oneHot[i] << ", ";
+                    }
+                }
+                std::cout<< std::endl;
+             */
+    
+             /* 
+                The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1 row, len(vocab columns) with redundency)
+
+                Compute the gradient for the center word's embedding by subtracting the one-hot vector of the actual context word
+                from the predicted probability distribution.
+                `fp.predicted_probabilities` contains the predicted probabilities over all words in the vocabulary. 
+                    -> If fp.predicted_probabilities[i] is a small probability (close to zero like 1.70794e-18), it means the model is quite confident that class i is not the correct label.
+                    -> Floating-Point Precision: Very small probabilities close to zero (like 1.7×10e^−18) can sometimes appear as exactly zero due to precision limits, 
+                       but this is generally fine for gradient computation as the training process accounts for it.
+                `oneHot` is a one-hot vector representing the true context word in the vocabulary.
+                The result, `grad_u`, is the error signal for updating the center word's embedding in the Skip-gram model.
+
+                what is an error signal?
+                -------------------------
+                1. For the correct context word (where oneHot is 1), the gradient is (predicted_probabilities - 1), meaning the model's prediction was off by that much.
+                2. For all other words (where oneHot is 0), the gradient is simply predicted_probabilities, meaning the model incorrectly assigned a nonzero probability to these words(meaning the model's prediction was off by that much, which the whole of predicted_probability for that out of context word).
+                3. If the large gradients cause instability, consider gradient clipping. So, a gradient of −1 or even 1 in this context is manageable and not unusual.
+                   When we mention "large gradients" in the context of gradient clipping, we’re generally referring to situations where values might spike significantly higher,
+                   leading to instability—often in ranges much higher than 1, sometimes reaching orders of magnitude greater depending on the scale of your loss function and the learning rate.
+             */          
+             grad_u = Numcy::subtract<double>(fp.predicted_probabilities, oneHot);
+             
+             /*
+                Accumulates gradients first and applies them later in a separate step.
+                ---------------------------------------------------------------------- 
+                Take h transpose of  hidden_layer_vector(h) and the multiply it with 
+                grad_u(gradient of intermediate_activation) and the resulting matrix will grad_W2.
+                Before transpose_h has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, 1 column) and grad_u is (1 row, len((vocab with redundency) columns)
+
+                grad_W2 has shape (SKIP_GRAM_EMBEDDNG_VECTOR_SIZE rows, len((vocab with redundency) columns)
+              */
+             grad_W2 = Numcy::dot(h_transpose, grad_u);
+             
+             // Update gradients for positive samples
+             //W2 = W2 + grad_W2;                          
+                        
+            /*
+                for (int i = 0; i < vocab.numberOfUniqueTokens(); i++)
+                {                        
+                    //std::cout<< grad_u[i] << ", ";
+
+                    if (_isnanf(grad_u[i]))
+                    {        
+                        throw ala_exception(cc_tokenizer::String<char>("backward() Error: gradient for the center word ") + cc_tokenizer::String<char>("(grad_u) at index ") +  cc_tokenizer::String<char>(i) + cc_tokenizer::String<char>("_isnanf() was true"));
+                    }
+                    else if (grad_u[i] == 0)
+                    {
+                        throw ala_exception("backward() Error: gradient for the center word is zero in grad_u"); 
+                    }
+
+                    if (oneHot[i] == 1)
+                    {
+                        std::cout << "y_pred[i] = " << fp.predicted_probabilities[i] << "  <<--->>  " <<  fp.predicted_probabilities[i] - oneHot[i] << " , " << grad_u[i] << " --- ";
+                    }  
+                }
+                std::cout<< std::endl;
+             */
+             /*
+                So what you are saying is that take he transpose of  hidden_layer_vector(h) and the multiply it with 
+                grad_u(gradient of intermediate_activation) and the resulting matrix will grad_W2 
+             */
+            /*Collective<T> h_transpose = Numcy::transpose<T>(fp.hidden_layer_vector);*/
+            /*grad_W2 =  Numcy::dot(h_transpose, grad_u);*/
+
+            //std::cout<< "Dimensions of h_transpose = " << h_transpose.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << h_transpose.getShape().getNumberOfColumns() << std::endl;
+            //std::cout<< "Dimensions of h = " << fp.hidden_layer_vector.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.hidden_layer_vector.getShape().getNumberOfColumns() << std::endl;
+
+            /*std::cout<< "Dimensions of fp.intermediate_activation a.k.a u = " << fp.intermediate_activation.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << fp.intermediate_activation.getShape().getNumberOfColumns() << std::endl;
+            std::cout<< "Dimensions of grad_u = " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_u.getShape().getNumberOfColumns() << std::endl;*/
+            //grad_W2 = Numcy::outer(fp.intermediate_activation, grad_u);
+            /*std::cout<< "Dimensions of grad_W2 = " << grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2.getShape().getNumberOfColumns() << std::endl;*/
+        
+            // Update W1 for positive samples
+            // ------------------------------
+            W2_T = Numcy::transpose(W2);
+
+            /*
+                std::cout<< grad_u.getShape().getNumberOfColumns() << " ------- " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+                std::cout<< W2_T.getShape().getNumberOfColumns() << " ------- " << W2_T.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+            */
+            /*
+                A (m, n), B = (n, p) then A*B is (m, p)
+                The shape of grad_u is the same as y_pred (fp.predicted_probabilities) which is (1 row, len(vocab columns) with redundency)
+                The shape of W2_T is (vocab.numberOfTokens() rows, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE columns)
+                The shape of grad_h is (1 row, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE columns)
+            */        
+            grad_h = Numcy::dot(grad_u, W2_T);
+
+            /*std::cout<< "grad_h shape Columns =" << grad_h.getShape().getNumberOfColumns() << " -------  Rows = " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;*/
+
+            /*
+                std::cout<< grad_h.getShape().getNumberOfColumns() << " ------------------------- " << grad_h.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << std::endl;
+            */
+            /*
+                Accumulates gradients first and applies them later in a separate step.
+                ---------------------------------------------------------------------- 
+             */
+            grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, /*vocab.numberOfTokens()*/ vocab.numberOfUniqueTokens(), NULL, NULL});
+
+            /*
+                Dimensions of grad_h is (1, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+                Dimensions of grad_W1 is (len(vocab) without redundency, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+            */
+            // Update center word gradient for positive sample
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < grad_W1.getShape().getNumberOfColumns(); i++)
+            {
+                grad_W1[(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)*SKIP_GRAM_EMBEDDNG_VECTOR_SIZE + i] += grad_h[i];
+            }
+        }
+        else if (negative_samples_indices.getShape().getN() > 0)
+        {   
+            // Initialize gradient accumulators
+            grad_W1 = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, vocab.numberOfUniqueTokens(), NULL, NULL});
+            grad_W2 = Numcy::zeros(DIMENSIONS{vocab.numberOfUniqueTokens(), SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL});
+                        
+            // Backpropagation for positive sample
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < SKIP_GRAM_CONTEXT_WINDOW_SIZE; i++)
+            {
+                T* ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());
+                Collective<T> W2_positive_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};
+
+                /*cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());*/
+
+                ptr = NULL;
+
+                Collective<T> u_positive_sample;
+                Collective<T> grad_u_positive_sample;
+                Collective<T> grad_W2_positive_sample;
+
+                if ((*(pair->getLeft()))[i] != INDEX_NOT_FOUND_AT_VALUE)
+                {
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        W2_positive_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE];
+                    }
+
+                    // Calculate Error for Positive Sample
+                    u_positive_sample = Numcy::dot(fp.hidden_layer_vector, W2_positive_sample);                    
+                    grad_u_positive_sample = Numcy::sigmoid(u_positive_sample) - 1;
+
+                    // Calculate Gradient for W2 for Positive Sample
+                    // dL/dW2 = h * error
+                    grad_W2_positive_sample = Numcy::outer(fp.hidden_layer_vector, grad_u_positive_sample);
+
+                    //std::cout<< "Dimensions of grad_W2_positive_sample (ROWS) = " << grad_W2_positive_sample.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2_positive_sample.getShape().getNumberOfColumns() << std::endl;
+                    //std::cout<< "Dimensions of grad_u = " << grad_u.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_u.getShape().getNumberOfColumns() << std::endl;
+                    
+                    //positive_samples_loss = positive_samples_loss + std::log(Numcy::sigmoid(u_positive_sample)[0])*(-1);
+
+                    //W2[:, context_word_index] -= learning_rate * grad_W2_positive[:, 0]
+
+                    // Accumulate Gradient for W2 for Positive Sample
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W2*/grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        // Commented this line to accumulate gradients first and apply them later
+                        /*W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] - learning_rate*grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];*/
+
+                        // USE += (Add the negative gradient)                        
+                        grad_W2[j*grad_W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] += /*learning_rate**/grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0]; 
+                    }
+
+                    // Calculate Gradient for W1 (Center Vector)
+                    // ERROR WAS HERE: You used dot(grad, hidden_layer). 
+                    // CORRECTION: It must be dot(grad, W2_context).
+                    // Math: dL/dh = error * W2
+                    // Note: grad_u is scalar (1x1), W2 is vector (Dx1). 
+                    // You effectively just want to scale W2 by the error term.
+
+                    Collective<T> grad_h_contribution = Numcy::zeros(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, 1, NULL, NULL});
+
+                    for(int k=0; k<SKIP_GRAM_EMBEDDNG_VECTOR_SIZE; k++) {
+                    // Scalar multiplication: Error * Context_Vector[k]
+                        grad_h_contribution[k] = grad_u_positive_sample[0] * W2_positive_sample[k];
+                    }
+
+                    // 5. Accumulate Gradient for W1
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < grad_W1.getShape().getNumberOfColumns(); j++)
+                    {
+                        // USE += (Add the negative gradient)
+                        grad_W1[grad_W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] += grad_h_contribution[j];
+                    }
+                    //std::cout<< "Dimensions of Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector) ROWS = " << Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector).getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector).getShape().getNumberOfColumns() << std::endl;                    
+                }
+
+                if ((*(pair->getRight()))[i] != INDEX_NOT_FOUND_AT_VALUE)
+                {
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        W2_positive_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE];                        
+                    }
+
+                    u_positive_sample = Numcy::dot(fp.hidden_layer_vector, W2_positive_sample); 
+
+                    grad_u_positive_sample = Numcy::sigmoid(u_positive_sample) - 1;
+
+                    grad_W2_positive_sample = Numcy::outer(fp.hidden_layer_vector, grad_u_positive_sample);
+
+                    //std::cout<< "--Dimensions of grad_W2_positive_sample (ROWS) = " << grad_W2_positive_sample.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2_positive_sample.getShape().getNumberOfColumns() << std::endl;
+                    
+                    //positive_samples_loss = positive_samples_loss + std::log(Numcy::sigmoid(u_positive_sample)[0])*(-1);
+
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W2*/grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                    {
+                        // Commented this line to accumulate gradients first and apply them later
+                        /*W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] - learning_rate*grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];*/
+
+                        grad_W2[j*grad_W2.getShape().getNumberOfColumns() + (*(pair->getRight()))[i] - INDEX_ORIGINATES_AT_VALUE] /*-=*/ += /*learning_rate**/grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];
+                    }
+
+                    Collective<T> product = Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector);
+
+                    for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W1*/grad_W1.getShape().getNumberOfColumns(); j++)
+                    {
+                        // Commented this line to accumulate gradients first and apply them later
+                        /*W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - learning_rate*product[j];*/
+
+                        grad_W1[grad_W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] -= /*learning_rate**/product[j];
+                    }
+                }
+            }
+            // Backpropagation for negative samples
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < negative_samples_indices.getShape().getN(); i++)
+            {                
+                T* ptr = cc_tokenizer::allocator<T>().allocate(W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());            
+                Collective<T> W2_negative_sample = Collective<T>{ptr, DIMENSIONS{1, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(), NULL, NULL}};                        
+                    /*cc_tokenizer::allocator<T>().deallocate(ptr, W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays());*/            
+                ptr = NULL;
+
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                {
+                    W2_negative_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + negative_samples_indices[i]];
+                } 
+
+                Collective<T> u_negative_sample = Numcy::dot(fp.hidden_layer_vector, W2_negative_sample); 
+
+                /*u_negative_sample = u_negative_sample*((T)-1);*/
+                Collective<T> grad_u_negative_sample = Numcy::sigmoid(u_negative_sample) /*- 1*/;
+
+                Collective<T> grad_W2_negative_sample = Numcy::outer(fp.hidden_layer_vector, grad_u_negative_sample);
+
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W2*/grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                {
+                    // Commented this line to accumulate gradients first and apply them later
+                    /*W2[j*W2.getShape().getNumberOfColumns() + i] = W2[j*W2.getShape().getNumberOfColumns() + i] - learning_rate*grad_W2_negative_sample[j*grad_W2_negative_sample.getShape().getNumberOfColumns() + 0];*/
+
+                    grad_W2[j*grad_W2.getShape().getNumberOfColumns() + negative_samples_indices[i]] += /*learning_rate**/grad_W2_negative_sample[j*grad_W2_negative_sample.getShape().getNumberOfColumns() + 0];
+                }
+
+                Collective<T> product = Numcy::dot(grad_u_negative_sample, fp.hidden_layer_vector);
+
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W1*/grad_W1.getShape().getNumberOfColumns(); j++)
+                {
+                    // Commented this line to accumulate gradients first and apply them later
+                    /*W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] = W1[W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] - learning_rate*product[j];*/
+
+                    // Bug 2: The line below was incorrectly subtracting the product instead of adding it.
+                    //grad_W1[grad_W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] -= /*learning_rate**/product[j];
+
+                    // Correct: Scaling the negative vector by the error signal
+                    grad_W1[grad_W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE) + j] += grad_u_negative_sample[0] * W2_negative_sample[j];
+                }
+            }
+        }
+        else
+        {            
+            throw ala_exception("The array containing indices of negative samples is empty.");        
+        }
+    }
+    catch (std::bad_alloc& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+    catch (std::length_error& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+    catch (ala_exception& e)
+    {
+        throw ala_exception(cc_tokenizer::String<char>("backward() Error: ") + cc_tokenizer::String<char>(e.what()));
+    }
+
+    /*
+        Dimensions of grad_W1 is (len(vocab) without redundency, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE)
+        Dimensions of grad_W2 is (len(vocab) without redundency, len(vocab) without redundency)
+     */ 
+    //return backward_propogation<T>{grad_W1, grad_W2, Collective<T>{NULL, DIMENSIONS{0, 0, NULL, NULL}}};
+
+   //T * ptrptrptr = cc_tokenizer::allocator<T>().allocate(10);
+    //DIMENSIONS temp1 = DIMENSIONS{10, 1, NULL, NULL};
+
+    DIMENSIONS temp1 = DIMENSIONS{0, 0, NULL, NULL};
+    Collective<T> temp2 = Collective<T>{NULL, temp1};       
+    backward_propogation<T> ret = backward_propogation<T>{grad_W1, grad_W2, temp2};
+    
+    //std::cout<< "AT THE END OF BACKWARD PROPAGATION FUNCTION" << std::endl;
+
+    return ret;
+}
+
+template <typename T = double, typename E = cc_tokenizer::string_character_traits<char>::size_type>
 backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collective<E> negative_samples_indices, CORPUS_REF vocab, forward_propogation<T>& fp, WORDPAIRS_PTR pair, bool verbose = false, T learning_rate = SKIP_GRAM_DEFAULT_LEARNING_RATE) throw (ala_exception)
 {
     if (pair->getCenterWord() > W1.getShape().getDimensionsOfArray().getNumberOfInnerArrays())
@@ -1741,10 +2523,12 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                         W2_positive_sample[j] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE];
                     }
 
-                    u_positive_sample = Numcy::dot(fp.hidden_layer_vector, W2_positive_sample);
-
+                    // Calculate Error for Positive Sample
+                    u_positive_sample = Numcy::dot(fp.hidden_layer_vector, W2_positive_sample);                    
                     grad_u_positive_sample = Numcy::sigmoid(u_positive_sample) - 1;
-                    
+
+                    // Calculate Gradient for W2 for Positive Sample
+                    // dL/dW2 = h * error
                     grad_W2_positive_sample = Numcy::outer(fp.hidden_layer_vector, grad_u_positive_sample);
 
                     //std::cout<< "Dimensions of grad_W2_positive_sample (ROWS) = " << grad_W2_positive_sample.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << grad_W2_positive_sample.getShape().getNumberOfColumns() << std::endl;
@@ -1754,13 +2538,22 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
                     //W2[:, context_word_index] -= learning_rate * grad_W2_positive[:, 0]
 
+                    // Accumulate Gradient for W2 for Positive Sample
                     for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < /*W2*/grad_W2.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
                     {
                         // Commented this line to accumulate gradients first and apply them later
                         /*W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] = W2[j*W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] - learning_rate*grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0];*/
 
+                        // USE += (Add the negative gradient)                        
                         grad_W2[j*grad_W2.getShape().getNumberOfColumns() + (*(pair->getLeft()))[i] - INDEX_ORIGINATES_AT_VALUE] += /*learning_rate**/grad_W2_positive_sample[j*grad_W2_positive_sample.getShape().getNumberOfColumns() + 0]; 
                     }
+
+                    // Calculate Gradient for W1 (Center Vector)
+                    // ERROR WAS HERE: You used dot(grad, hidden_layer). 
+                    // CORRECTION: It must be dot(grad, W2_context).
+                    // Math: dL/dh = error * W2
+                    // Note: grad_u is scalar (1x1), W2 is vector (Dx1). 
+                    // You effectively just want to scale W2 by the error term.
 
                     Collective<T> product = Numcy::dot(grad_u_positive_sample, fp.hidden_layer_vector);
 
@@ -1963,6 +2756,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
 
     Training loop arguments
     -----------------------
+    @data_parser, instance of class csv_parser
     @epoch, number of times the training loop would iterate
     @W1, embedding matrix. Each row in W1 is a unique word's embedding vector, representing its semantic relationship with other words
     @W2, output layer. Weights for predicting context words
@@ -1980,7 +2774,151 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
     @shuffle_target_context_pairs, when true shuffles the training data (word pairs) before each epoch to avoid biases in weight updates
     @verbose, when true puts more text on screen to help debug code    
  */
-#define SKIP_GRAM_TRAINING_LOOP(epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, nns, default_clip_gradients_threshold, shuffle_target_context_pairs, verbose)\
+#define SKIP_GRAM_TRAINING_LOOP(data_parser, epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, nns, default_clip_gradients_threshold, shuffle_target_context_pairs, verbose)\
+{\
+    cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
+    Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_sampling_table = buildNegativeSamplesTable(vocab);\
+    /* Epoch loop */\
+    for (cc_tokenizer::string_character_traits<char>::size_type i = 1; i <= epoch && !stf; i++)\
+    {\
+        /* Initializes the epoch loss to 0 before accumulating errors from word pairs */\
+        el = 0;\
+        if (verbose)\
+        {\
+            std::cout<< "Epoch# " << i << " of " << epoch << " epochs." << std::endl;\
+        }\
+        forward_propogation<t> fp;\
+        backward_propogation<t> bp;\
+        Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_samples;\
+        \
+        data_parser.reset(LINES);\
+        data_parser.reset(TOKENS);\
+        while (data_parser.go_to_next_line() != cc_tokenizer::string_character_traits<char>::eof() && !stf)\
+        {\
+            cc_tokenizer::String<char> line(data_parser.get_current_line() + cc_tokenizer::String<char>("\n"));\
+            cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> line_parser(line);\
+            CORPUS vocab_line(line_parser);\
+            PAIRS pairs_line(vocab_line);\
+            /* Shuffle Word Pairs: Shuffles the training data (word pairs) before each epoch to avoid biases in weight updates */\
+            if (shuffle_target_context_pairs)\
+            {\
+                Numcy::Random::shuffle<PAIRS>(pairs_line, pairs_line.get_number_of_word_pairs());\
+            }\
+            /* Iterates through each word pair in the training data  */\
+            while (pairs_line.go_to_next_word_pair() != cc_tokenizer::string_character_traits<char>::eof() && !stf)\
+            {\
+                /* Get Current Word Pair: We've a pair, a pair is LEFT_CONTEXT_WORD/S CENTER_WORD and RIGHT_CONTEXT_WORD/S */\
+                WORDPAIRS_PTR pair = pairs_line.get_current_word_pair();\
+                try\
+                {\
+                    /*Collective<cc_tokenizer::string_character_traits<char>::size_type>*/ negative_samples = generateNegativeSamplesFromTable(negative_sampling_table, nns);\
+                    /*\
+                        Forward Propagation: The forward function performs forward propagation and calculate the hidden layer\
+                        activation and predicted probabilities using the current word pair (pair), embedding matrix (W1),\
+                        output weights (W2), vocabulary (vocab), and data type (t). The result is stored in the fp variable.\
+                     */\
+                    fp = forward<t>(W1, W2, negative_samples, vocab, pair);\
+                    if(nns && verbose)\
+                    {\
+                        std::cout<< "This pair positive samples loss = " << fp.positive_samples_loss << ", and Negative samples loss = " << fp.negative_samples_loss << std::endl;\
+                        el = el + fp.positive_negative_epoch_loss;\
+                    }\
+                    /*\ Backward Propagation: The backward function performs backward propagation and calculate the gradients\
+                        with respect to the input and output layer weights using the forward propagation results (fp), word pair (pair),\
+                        embedding matrix (W1), output weights (W2), vocabulary (vocab), and data type (t).\
+                        The result is stored in the bp variable.\
+                     */\
+                    bp = backward<t>(W1, W2, negative_samples, vocab, fp, pair, false, lr);\
+                    if (default_clip_gradients_threshold > 0)\
+                    {\
+                        clip_gradients(bp.grad_weights_input_to_hidden, /*AXIS_ROWS*/ AXIS_NONE, default_clip_gradients_threshold);\
+                        clip_gradients(bp.grad_weights_hidden_to_output, /*AXIS_COLUMN*/ AXIS_NONE, default_clip_gradients_threshold);\
+                    }\
+                    /*if (!nns)*/\
+                    {\
+                        /* Update Weights */\
+                        if (rs == 0)\
+                        {\
+                            W1 -= bp.grad_weights_input_to_hidden * lr;\
+                            W2 -= bp.grad_weights_hidden_to_output * lr;\
+                        }\
+                        else\
+                        {\
+                            /* Relationship between learning rate (lr) and regularization strength (rs) */\
+                            /* ------------------------------------------------------------------------ */\
+                            /* High learning rate (lr) often requires higher regularization strength (rs) to prevent overfitting or unstable updates during training. */\
+                            /* A high learning rate leads to larger parameter updates, which can result in the model overshooting the optimal solution or overfitting the training data. */\
+                            /* Increasing the regularization strength helps by penalizing large weights, thus stabilizing the training */\
+                            /* Low learning rate (lr) generally allows for either no regularization or lower regularization strength because smaller updates reduce the risk of overfitting. */\
+                            /* In such cases, the model converges more slowly, and heavy regularization may not be necessary */\
+                            \
+                            /* L2 regularization (also known as weight decay). */\
+                            /* ----------------------------------------------- */\
+                            /* The regularization strength (rs) controls how much penalty is applied. */\
+                            /* The weights are updated by subtracting the learning rate (lr) scaled by the sum of the gradient and the regularization term. */\
+                            /* Ensure that the regularization strength (rs) is not too large, as it might lead to excessively penalizing the weights and slow down convergence. */\
+                            /* The regularization expression W1 * rs and W2 * rs are added to gradient added to the gradient to penalize large weights, which helps prevent overfitting. */\
+                            Collective<t>  W1_rs = W1 * rs;\
+                            W1 -= ((bp.grad_weights_input_to_hidden + W1_rs /*(W1 * rs)*/) * lr);\
+                            Collective<t>  W2_rs = W2 * rs;\
+                            W2 -= ((bp.grad_weights_hidden_to_output + W2_rs /*(W2 * rs)*/) * lr);\
+                            \
+                            /*W1 -= (bp.grad_weights_input_to_hidden * lr) + (W1 * rs * lr);*/\
+                            /*W2 -= ((bp.grad_weights_hidden_to_output + (W2 * rs)) * lr);*/\
+                            \
+                            /*W2 -= (bp.grad_weights_hidden_to_output * lr) + (W2 * rs * lr);*/\
+                        }\
+                        if (!nns)\
+                        {\
+                            /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
+                               In NLL, lower values indicate better performance. */\
+                            el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
+                        }\
+                        /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
+                    }\
+                }\
+                catch(ala_exception& e)\
+                {\
+                    std::cout<< "SKIP_GRAM_TRAINIG_LOOP -> " << e.what() << std::endl;\
+                    stf = true;\
+                }\
+            }\
+            if (!stf)\
+            {\
+                if (!nns)\
+                {\
+                    if (el_previous == 0 || el < el_previous)\
+                    {\
+                        std::cout<< "epoch_loss = (" << el << "), Average epoch_loss = " << el/pairs.get_number_of_word_pairs() << ". Reduction between consecutive epochs: " << el_previous - el << "." << std::endl;\
+                        \
+                        el_previous = el;\
+                    }\
+                    else\
+                    {\
+                        std::cout<< "Average epoch_loss is increasing... from " << el_previous/pairs.get_number_of_word_pairs() << " to " << el/pairs.get_number_of_word_pairs() << std::endl;\
+                        if (patience < DEFAULT_TRAINING_LOOP_PATIENCE)\
+                        {\
+                            patience = patience + 1;\
+                        }\
+                        else\
+                        {\
+                            stf = true;\
+                        }\
+                    }\
+                }\
+                /* Negative sampling is enabled */\
+                else\
+                {\
+                    std::cout<< "Total negative positive sampling epoch loss = (" << fp.positive_negative_epoch_loss << "), Average epoch loss = " <<  fp.positive_negative_epoch_loss/pairs.get_number_of_word_pairs() << ", (" << el << ", " << el/pairs.get_number_of_word_pairs() << ")." << std::endl;\
+                }\
+            }\
+            /* Multiply the learning rate by a decay factor, after each epoch. Specially, when you are not using negative sampling, start with higher learning rate and gradually decrease it at the completion of each epoch. If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1 */\
+            lr = lr * lr_decay;\
+        }\
+    }\
+}\
+
+#define SKIP_GRAM_TRAINING_LOOP_WORKING(epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, nns, default_clip_gradients_threshold, shuffle_target_context_pairs, verbose)\
 {\
     cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
     Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_sampling_table = buildNegativeSamplesTable(vocab);\

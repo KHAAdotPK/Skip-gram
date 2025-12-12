@@ -233,7 +233,7 @@ int main(int argc, char* argv[])
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> data_parser(data);
     class Corpus vocab(data_parser);
     PAIRS pairs(vocab, arg_show_pairs.i ? true : false);
-
+   
     /*
         For the neural network itself, Skip-gram typically uses a simple architecture. 
 
@@ -325,6 +325,16 @@ int main(int argc, char* argv[])
             std::cout<< "Dimensions of W1 = " << W_input_to_hidden.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_input_to_hidden.getShape().getNumberOfColumns() << std::endl;
             std::cout<< "Dimensions of W2 = " << W_hidden_to_output.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_hidden_to_output.getShape().getNumberOfColumns() << std::endl;
 
+            /*for (int i = 0; i < W_hidden_to_output.getShape().getNumberOfColumns();  i++)
+            {
+                for (int j = 0; j < W_hidden_to_output.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                {
+                    std::cout<< W_hidden_to_output[j*W_hidden_to_output.getShape().getNumberOfColumns() + i] << ", ";
+                }
+
+                std::cout<< std::endl << std::endl;
+            }*/
+            
             if (arg_save_initial_weights.i)
             {
                 WRITE_W_BIN(W_input_to_hidden, cc_tokenizer::String<char>("W1_initial_weights.dat"), double);
@@ -392,7 +402,9 @@ int main(int argc, char* argv[])
     /* Start training. */
     for (long i = 0; i < default_loop && !stop_training_flag; i++)
     {
-        SKIP_GRAM_TRAINING_LOOP(default_epoch, W_input_to_hidden, W_hidden_to_output, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_lr_decay, default_rs, double, stop_training_flag, /*arg_ns.i ? true : false*/ number_of_negative_samples, default_clip_gradients_threshold, arg_shuffle_target_context_pairs.i ? true : false, arg_verbose.i ? true : false);
+        //SKIP_GRAM_TRAINING_LOOP(default_epoch, W_input_to_hidden, W_hidden_to_output, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_lr_decay, default_rs, double, stop_training_flag, /*arg_ns.i ? true : false*/ number_of_negative_samples, default_clip_gradients_threshold, arg_shuffle_target_context_pairs.i ? true : false, arg_verbose.i ? true : false);
+
+        SKIP_GRAM_TRAINING_LOOP(data_parser, default_epoch, W_input_to_hidden, W_hidden_to_output, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_lr_decay, default_rs, double, stop_training_flag, /*arg_ns.i ? true : false*/ number_of_negative_samples, default_clip_gradients_threshold, arg_shuffle_target_context_pairs.i ? true : false, arg_verbose.i ? true : false);
     }
     
     /* 
