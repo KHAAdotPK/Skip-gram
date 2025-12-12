@@ -52,6 +52,10 @@
 
    Use ifdef, undef define preprocessor directives
  */ 
+#ifndef SKIP_GRAM_WINDOW_SIZE
+#define SKIP_GRAM_WINDOW_SIZE 2
+#endif
+
 #ifndef SKIP_GRAM_CONTEXT_WINDOW_SIZE
 #define SKIP_GRAM_CONTEXT_WINDOW_SIZE 2
 #endif
