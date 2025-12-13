@@ -2874,6 +2874,10 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                                In NLL, lower values indicate better performance. */\
                             el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
                         }\
+                        else\
+                        {\
+                            el = el + (-1*log(fp.pb(0)));\
+                        }\
                         /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
                     }\
                 }\
