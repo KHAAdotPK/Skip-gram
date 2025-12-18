@@ -10,6 +10,44 @@
 
 #include "header.hh"
 
+/*
+    How they relate by "Rank"
+    In ML, the rank (or order) refers to the number of dimensions:
+    - A scalar is a rank-0 tensor
+    - A vector is a rank-1 tensor
+    - A matrix is a rank-2 tensor
+    - A 3D tensor is a rank-3 tensor
+    - And so on...
+ */
+template<typename t = double>
+void debug_tensor(Collective<t>& tensor)
+{
+    DIMENSIONSOFARRAY dims = tensor.getShape().getDimensionsOfArray();
+
+    std::cout<< "DIMENSIONS: ";
+
+    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < dims.size(); i++)
+    {
+        std::cout<< dims[i];
+        if (i < dims.size() - 1)
+        {
+            std::cout<< " x ";
+        }
+    }
+
+    std::cout<< std::endl;
+
+    for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < tensor.getShape().getN(); i++)
+    {
+        std::cout<< tensor[(i/dims.getSizeOfInnerMostArray())*dims.getSizeOfInnerMostArray() + i%dims.getSizeOfInnerMostArray()] << " ";
+
+        if ( !( (i + 1) % dims.getSizeOfInnerMostArray() ) )
+        {
+            std::cout<< std::endl;
+        }
+    }
+}
+
 template<typename E>
 struct backward_propogation; 
 
@@ -1301,6 +1339,14 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
             The embedding for the center word is stored in the hidden layer vector h.
          */        
         h = W1.slice(W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE), W1.getShape().getNumberOfColumns());
+        
+        /*std::cout<< pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE << "--> ";
+        for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W1.getShape().getNumberOfColumns(); i++)
+        {
+            std::cout<< h[i] << " ";
+        }
+        std::cout<< std::endl;*/
+        
                 
         // Compute the logits u using the dot product of h (center word embedding) and W2 (output layer weights)
         /*	
@@ -2774,7 +2820,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
     @shuffle_target_context_pairs, when true shuffles the training data (word pairs) before each epoch to avoid biases in weight updates
     @verbose, when true puts more text on screen to help debug code    
  */
-#define SKIP_GRAM_TRAINING_LOOP(data_parser, epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, nns, default_clip_gradients_threshold, shuffle_target_context_pairs, verbose)\
+#define SKIP_GRAM_TRAINING_LOOP_line_by_line(data_parser, epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, nns, default_clip_gradients_threshold, shuffle_target_context_pairs, verbose)\
 {\
     cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
     Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_sampling_table = buildNegativeSamplesTable(vocab);\
@@ -2876,7 +2922,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                         }\
                         else\
                         {\
-                            el = el + (-1*log(fp.pb(0)));\
+                            /*el = el + (-1*log(fp.pb(0)));*/\
                         }\
                         /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
                     }\
@@ -2922,10 +2968,15 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
     }\
 }\
 
-#define SKIP_GRAM_TRAINING_LOOP_WORKING(epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, nns, default_clip_gradients_threshold, shuffle_target_context_pairs, verbose)\
+#define SKIP_GRAM_TRAINING_LOOP(data_parser, epoch, W1, W2, el, el_previous, vocab, pairs, lr, lr_decay, rs, t, stf, nns, default_clip_gradients_threshold, shuffle_target_context_pairs, verbose)\
 {\
+    /*debug_tensor(W1);*/\
     cc_tokenizer::string_character_traits<char>::size_type patience = 0;\
-    Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_sampling_table = buildNegativeSamplesTable(vocab);\
+    Collective<cc_tokenizer::string_character_traits<char>::size_type> negative_sampling_table;\
+    if (nns)\
+    {\
+        negative_sampling_table = buildNegativeSamplesTable(vocab);\
+    }\
     /* Epoch loop */\
     for (cc_tokenizer::string_character_traits<char>::size_type i = 1; i <= epoch && !stf; i++)\
     {\
@@ -2953,7 +3004,10 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             /*backward_propogation<t> bp;*/\
             try\
             {\
-                /*Collective<cc_tokenizer::string_character_traits<char>::size_type>*/ negative_samples = generateNegativeSamplesFromTable(negative_sampling_table, nns);\
+                if (nns)\
+                {\
+                    /*Collective<cc_tokenizer::string_character_traits<char>::size_type>*/ negative_samples = generateNegativeSamplesFromTable(negative_sampling_table, nns);\
+                }\
                 /* Forward Propagation: The forward function performs forward propagation and calculate the hidden layer\
                    activation and predicted probabilities using the current word pair (pair), embedding matrix (W1),\
                    output weights (W2), vocabulary (vocab), and data type (t). The result is stored in the fp variable.*/\
@@ -2974,7 +3028,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                     clip_gradients(bp.grad_weights_hidden_to_output, /*AXIS_COLUMN*/ AXIS_NONE, default_clip_gradients_threshold);\
                 }\
                 /*std::cout<< "AFTER BACKWARD" << std::endl;*/\
-                if (!nns)\
+                /*if (!nns)*/\
                 {\
                     /* Update Weights */\
                     if (rs == 0)\
@@ -3010,8 +3064,11 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                     }\
                     /* Loss Function: The Skip-gram model typically uses negative log-likelihood (NLL) as the loss function.\
                        In NLL, lower values indicate better performance. */\
-                    el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
-                    /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
+                    if (!nns)\
+                    {\
+                        el = el + (-1*log(fp.pb(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE)));\
+                        /*cc_tokenizer::allocator<cc_tokenizer::string_character_traits<char>::size_type>().deallocate(negative_samples_ptr);*/\
+                    }\
                 }\
                 /*if (nns)*/\
                 /*{*/\
