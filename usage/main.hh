@@ -20,6 +20,8 @@
 #define TRAINED_OUTPUT_WEIGHTS_FILE_NAME    "W2trained.dat"
 #define INITIAL_W1_WEIGHT_TXT_FILE          "W1initial.txt"
 #define INITIAL_W2_WEIGHT_TXT_FILE          "W2initial.txt"
+#define TRAINED_W1_WEIGHT_TXT_FILE          "W1trained.txt"
+#define TRAINED_W2_WEIGHT_TXT_FILE          "W2trained.txt"
 
 #ifdef GRAMMAR_END_OF_TOKEN_MARKER
 #undef GRAMMAR_END_OF_TOKEN_MARKER
@@ -34,7 +36,7 @@
 #ifdef SKIP_GRAM_EMBEDDNG_VECTOR_SIZE
 #undef SKIP_GRAM_EMBEDDNG_VECTOR_SIZE
 #endif
-#define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 5
+#define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 50
 
 // Start with small values (e.g., 0.001) and adjust based on performance.
 #ifdef SKIP_GRAM_REGULARIZATION_STRENGTH
@@ -45,7 +47,12 @@
 #ifdef SKIP_GRAM_CONTEXT_WINDOW_SIZE
 #undef SKIP_GRAM_CONTEXT_WINDOW_SIZE
 #endif
-#define SKIP_GRAM_CONTEXT_WINDOW_SIZE 2
+#define SKIP_GRAM_CONTEXT_WINDOW_SIZE 5
+
+#ifdef SKIP_GRAM_WINDOW_SIZE
+#undef SKIP_GRAM_WINDOW_SIZE
+#endif
+#define SKIP_GRAM_WINDOW_SIZE 5
 
 #ifdef SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD
 #undef SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD
@@ -61,6 +68,11 @@
 #define SKIP_GRAM_LEARNING_RATE_DECAY 0.99
 
 #define DEFAULT_TRAINING_LOOP_PATIENCE 3
+
+#ifdef SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES
+#undef SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES 
+#endif
+#define SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES 5
 
 //#include "../lib/argsv-cpp/lib/parser/parser.hh"
 //#include "../lib/sundry/cooked_read_new.hh"
@@ -84,7 +96,7 @@ show_pairs --show_pairs (Displays pairs of target/center words and their surroun
 save_initial_weights --save_initial_weights (Saves the initial \"randomly initialized weights\" for the embedding matrices W1 W2 to the files before training begins.)\n\
 shuffle_target_context_pairs --shuffle_target_context_pairs (Shuffles the target/center word and its context words during training, at the start of each new epoch begins.)\n\
 random_number_generator_seed --random_number_generator_seed (Sets the seed for the random number generator.)\n\
---learning_rate_decay learning_rate_decay --lr_decay lr_decay --learning_rate_scheduling learning_rate_scheduling (It is a technique in ML where the learning rate gradually decreases over time during training, typically starting with a larger value to allow for bigger parameter updates and faster initial learning. This command optionaly accepts an argument. If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1)\n\
+learning_rate_decay --learning_rate_decay lr_decay --lr_decay learning_rate_scheduling --learning_rate_scheduling (It is a technique in ML where the learning rate gradually decreases over time during training, typically starting with a larger value to allow for bigger parameter updates and faster initial learning. This command optionaly accepts an argument. If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1)\n\
 clip_gradients_threshold --clip_gradients_threshold (Enable and optinally sets threshold for gradient clipping to prevent exploding gradients, recommended: 1.0–5.0.)\n"
 
 #endif

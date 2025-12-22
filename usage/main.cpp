@@ -325,15 +325,17 @@ int main(int argc, char* argv[])
             std::cout<< "Dimensions of W1 = " << W_input_to_hidden.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_input_to_hidden.getShape().getNumberOfColumns() << std::endl;
             std::cout<< "Dimensions of W2 = " << W_hidden_to_output.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_hidden_to_output.getShape().getNumberOfColumns() << std::endl;
 
-            /*for (int i = 0; i < W_hidden_to_output.getShape().getNumberOfColumns();  i++)
+            /*for (int i = 0; i < W_hidden_to_output.getShape().getNumberOfRows();  i++)
             {
-                for (int j = 0; j < W_hidden_to_output.getShape().getDimensionsOfArray().getNumberOfInnerArrays(); j++)
+                for (int j = 0; j < W_hidden_to_output.getShape().getNumberOfColumns(); j++)
                 {
-                    std::cout<< W_hidden_to_output[j*W_hidden_to_output.getShape().getNumberOfColumns() + i] << ", ";
+                    std::cout<< W_hidden_to_output[i*W_hidden_to_output.getShape().getNumberOfColumns() + j] << ", ";
                 }
 
                 std::cout<< std::endl << std::endl;
-            }*/
+            }
+
+            return 0;*/
             
             if (arg_save_initial_weights.i)
             {
@@ -350,7 +352,7 @@ int main(int argc, char* argv[])
     if (arg_save_initial_weights.i)
     {
         WRITE_W1_TO_TEXT_FILE(W_input_to_hidden, INITIAL_W1_WEIGHT_TXT_FILE, vocab);
-        WRITE_W2_TO_TEXT_FILE(W_input_to_hidden, W_hidden_to_output, INITIAL_W2_WEIGHT_TXT_FILE, vocab);
+        WRITE_W2_TO_TEXT_FILE(W_hidden_to_output, INITIAL_W2_WEIGHT_TXT_FILE, vocab);
     }    
 
     bool stop_training_flag = false;
@@ -420,6 +422,12 @@ int main(int argc, char* argv[])
     std::cout<< "Trained output weights written to file: " << /*TRAINED_OUTPUT_WEIGHTS_FILE_NAME*/ W2OutPutFile.c_str() << std::endl;
             
     WRITE_W_BIN(W_hidden_to_output, W2OutPutFile.c_str(), double);
+
+    if (arg_save_initial_weights.i)
+    {
+        WRITE_W1_TO_TEXT_FILE(W_input_to_hidden, TRAINED_W1_WEIGHT_TXT_FILE, vocab);
+        WRITE_W2_TO_TEXT_FILE(W_hidden_to_output, TRAINED_W2_WEIGHT_TXT_FILE, vocab);
+    }    
                    
     return 0;
 }
