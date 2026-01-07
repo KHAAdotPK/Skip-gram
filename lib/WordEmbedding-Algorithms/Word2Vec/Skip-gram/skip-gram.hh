@@ -3012,9 +3012,12 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
                    activation and predicted probabilities using the current word pair (pair), embedding matrix (W1),\
                    output weights (W2), vocabulary (vocab), and data type (t). The result is stored in the fp variable.*/\
                 fp = forward<t>(W1, W2, negative_samples, vocab, pair);\
-                if(nns && verbose)\
+                if(nns)\
                 {\
-                    std::cout<< "This pair positive samples loss = " << fp.positive_samples_loss << ", and Negative samples loss = " << fp.negative_samples_loss << std::endl;\
+                    if (verbose)\
+                    {\
+                        std::cout<< "This pair positive samples loss = " << fp.positive_samples_loss << ", and Negative samples loss = " << fp.negative_samples_loss << std::endl;\
+                    }\
                     el = el + fp.positive_negative_epoch_loss;\
                 }\
                 /* Backward Propagation: The backward function performs backward propagation and calculate the gradients\
@@ -3088,7 +3091,7 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             {\
                 if (el_previous == 0 || el < el_previous)\
                 {\
-                    std::cout<< "epoch_loss = (" << el << "), Average epoch_loss = " << el/pairs.get_number_of_word_pairs() << ". Reduction between consecutive epochs: " << el_previous - el << "." << std::endl;\
+                    std::cout<< "epoch_loss = (" << el << "), Average epoch_loss (epoch_los spread over all pairs) = " << el/pairs.get_number_of_word_pairs() << ". Reduction between consecutive epochs: " << el_previous - el << "." << std::endl;\
                     \
                     el_previous = el;\
                 }\
@@ -3108,7 +3111,8 @@ backward_propogation<T> backward(Collective<T>& W1, Collective<T>& W2, Collectiv
             /* Negative sampling is enabled */\
             else\
             {\
-                std::cout<< "Total negative positive sampling epoch loss = (" << fp.positive_negative_epoch_loss << "), Average epoch loss = " <<  fp.positive_negative_epoch_loss/pairs.get_number_of_word_pairs() << ", (" << el << ", " << el/pairs.get_number_of_word_pairs() << ")." << std::endl;\
+                /*std::cout<< "Total negative positive sampling epoch loss = (" << fp.positive_negative_epoch_loss << "), Average epoch loss = " <<  fp.positive_negative_epoch_loss/pairs.get_number_of_word_pairs() << ", (" << el << ", " << el/pairs.get_number_of_word_pairs() << ")." << std::endl;*/\
+                std::cout<< "epoch_loss (negative positive sampling epoch loss) = " << el << ",  Average epoch_loss (epoch_los spread over all pairs) = " << el/pairs.get_number_of_word_pairs() << std::endl;\
             }\
         }\
         /* Multiply the learning rate by a decay factor, after each epoch. Specially, when you are not using negative sampling, start with higher learning rate and gradually decrease it at the completion of each epoch. If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1 */\
