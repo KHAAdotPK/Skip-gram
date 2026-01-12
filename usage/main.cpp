@@ -7,9 +7,11 @@
 
 int main(int argc, char* argv[])
 { 
-    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed, arg_save_initial_weights, arg_lr_decay, arg_clip_gradients_threshold;
+    ARG arg_corpus, arg_epoch, arg_help, arg_lr, arg_rs, arg_verbose, arg_loop, arg_input, arg_output, arg_ns, arg_show_pairs, arg_shuffle_target_context_pairs, arg_random_number_generator_seed, arg_save_initial_weights, arg_lr_decay, arg_clip_gradients_threshold, arg_read_pairs, arg_write_pairs;
     cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> argsv_parser(cc_tokenizer::String<char>(COMMAND));
     cc_tokenizer::String<char> data;
+
+    PAIRS pairs;
     
     FIND_ARG(argv, argc, argsv_parser, "?", arg_help);
     if (arg_help.i)
@@ -42,6 +44,8 @@ int main(int argc, char* argv[])
     FIND_ARG(argv, argc, argsv_parser, "save_initial_weights", arg_save_initial_weights);
     FIND_ARG(argv, argc, argsv_parser, "learning_rate_scheduling", arg_lr_decay);
     FIND_ARG(argv, argc, argsv_parser, "--clip_gradients_threshold", arg_clip_gradients_threshold);
+    FIND_ARG(argv, argc, argsv_parser, "--read_pairs", arg_read_pairs);
+    FIND_ARG(argv, argc, argsv_parser, "--write_pairs", arg_write_pairs);
 
     cc_tokenizer::string_character_traits<char>::size_type number_of_negative_samples = 0;
     if (arg_ns.i)
@@ -228,12 +232,61 @@ int main(int argc, char* argv[])
 
             return 0;
         }
+    }    
+    cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> data_parser(data); 
+    
+    std::cout<< "Building Vocabulary..." << std::endl;
+    class Corpus vocab(data_parser);    
+
+    //std::cout<< "nut = " << vocab.numberOfUniqueTokens() << ", nt = " << vocab.numberOfTokens() << std::endl;
+
+    cc_tokenizer::String<char> pairs_file(DEFAULT_PAIRS_FILE_NAME);
+    
+    if (arg_read_pairs.i)
+    {
+        if (arg_read_pairs.argc > 1)
+        {
+            pairs_file = cc_tokenizer::String<char>(argv[arg_read_pairs.i + 1]);
+        }
+
+        try
+        {
+            pairs.read(pairs_file);
+        }
+        catch (ala_exception& e)
+        {
+            std::cerr << e.what() << std::endl;
+            return 0;
+        }
     }
-        
-    cc_tokenizer::csv_parser<cc_tokenizer::String<char>, char> data_parser(data);
-    class Corpus vocab(data_parser);
-    PAIRS pairs(vocab, arg_show_pairs.i ? true : false);
-   
+    else
+    {
+        std::cout<< "Building Pairs..." << std::endl;
+        pairs = PAIRS(vocab, arg_show_pairs.i ? true : false);
+    }
+
+    //PAIRS pairs(vocab, arg_show_pairs.i ? true : false);
+
+    //cc_tokenizer::String<char> pairs_file(DEFAULT_PAIRS_FILE_NAME);
+    if (arg_write_pairs.i)
+    {
+        if (arg_write_pairs.argc > 1)
+        {
+            pairs_file = cc_tokenizer::String<char>(argv[arg_write_pairs.i + 1]);
+        }
+
+        try
+        {
+            std::cout<< "Writing Pairs..." << std::endl;
+            pairs.write(pairs_file);
+        }
+        catch (ala_exception& e)
+        {
+            std::cerr << e.what() << std::endl;
+            return 0;
+        }
+    }
+       
     /*
         For the neural network itself, Skip-gram typically uses a simple architecture. 
 
@@ -320,22 +373,89 @@ int main(int argc, char* argv[])
                 The weights 𝑊1 and 𝑊2​ are initialized using random values drawn from a normal distribution, which is typical for training embeddings in skip-gram models. This approach prevents symmetry and allows gradients to flow during backpropagation.
              */
             W_input_to_hidden = Numcy::Random::randn<double>(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, /*vocab.numberOfTokens()*/ vocab.numberOfUniqueTokens(), NULL, NULL}, default_random_number_generator_seed);
+            //W_input_to_hidden = Numcy::Random::randn_xavier(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, /*vocab.numberOfTokens()*/ vocab.numberOfUniqueTokens(), NULL, NULL}, false);
             W_hidden_to_output = Numcy::Random::randn<double>(DIMENSIONS{vocab.numberOfUniqueTokens() /*vocab.numberOfTokens()*/, SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, NULL, NULL}, default_random_number_generator_seed, AXIS_COLUMN);
+            //W_hidden_to_output = Numcy::Random::randn_xavier(DIMENSIONS{SKIP_GRAM_EMBEDDNG_VECTOR_SIZE, /*vocab.numberOfTokens()*/ vocab.numberOfUniqueTokens(), NULL, NULL}, false);
+
+            //W_hidden_to_output = Numcy::transpose(W_hidden_to_output);
+
+            // 1. Setup Random Number Generator
+            std::random_device rd;
+            std::mt19937 gen(rd());
+
+            // 2. Define the range [-0.5/dim, 0.5/dim]
+            // For dim=50, this is [-0.01, 0.01]
+            float limit = 0.5f / W_input_to_hidden.getShape().getNumberOfColumns();
+            std::uniform_real_distribution<float> dis(-limit, limit);
+
+            // 3. Initialize W1
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W_input_to_hidden.getShape().getNumberOfRows(); i++)
+            {
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W_input_to_hidden.getShape().getNumberOfColumns(); j++)
+                {
+                    W_input_to_hidden[i*W_input_to_hidden.getShape().getNumberOfColumns() + j] = dis(rd);
+                }
+            }
+
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W_hidden_to_output.getShape().getNumberOfRows(); i++)
+            {
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W_hidden_to_output.getShape().getNumberOfColumns(); j++)
+                {
+                    W_hidden_to_output[j*W_hidden_to_output.getShape().getNumberOfColumns() + i] = dis(rd);
+                }
+            }
             
             std::cout<< "Dimensions of W1 = " << W_input_to_hidden.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_input_to_hidden.getShape().getNumberOfColumns() << std::endl;
             std::cout<< "Dimensions of W2 = " << W_hidden_to_output.getShape().getDimensionsOfArray().getNumberOfInnerArrays() << " X " << W_hidden_to_output.getShape().getNumberOfColumns() << std::endl;
 
-            /*for (int i = 0; i < W_hidden_to_output.getShape().getNumberOfRows();  i++)
+            //W_input_to_hidden = W_input_to_hidden / (double)RAND_MAX;
+            //W_hidden_to_output = W_hidden_to_output / (double)RAND_MAX;
+
+            /*
+
+                    // Correct initialization for Word2Vec
+                    // vector_size is 50 in your case
+                    for (long long a = 0; a < vocab_size; a++) {
+                    for (long long b = 0; b < vector_size; b++) {
+                    // Generate random float between 0 and 1
+                    float random_0_1 = (float)rand() / (float)RAND_MAX;
+        
+                    // Scale to range [-0.5/size, +0.5/size]
+                    // For size 50, this is [-0.01, +0.01]
+                    syn0[a * vector_size + b] = (random_0_1 - 0.5f) / vector_size;
+                }
+                }
+
+             */
+
+            //W_input_to_hidden = W_input_to_hidden - 0.5F; 
+            //W_input_to_hidden = W_input_to_hidden / (double)SKIP_GRAM_EMBEDDNG_VECTOR_SIZE;
+
+            //W_hidden_to_output = W_hidden_to_output - 0.5f;
+            //W_hidden_to_output = W_hidden_to_output / (double)SKIP_GRAM_EMBEDDNG_VECTOR_SIZE;
+
+            
+            /*for (int i = 0; i < W_input_to_hidden.getShape().getNumberOfRows();  i++)
             {
-                for (int j = 0; j < W_hidden_to_output.getShape().getNumberOfColumns(); j++)
+                for (int j = 0; j < W_input_to_hidden.getShape().getNumberOfColumns(); j++)
                 {
-                    std::cout<< W_hidden_to_output[i*W_hidden_to_output.getShape().getNumberOfColumns() + j] << ", ";
+                    std::cout<< W_input_to_hidden[i*W_input_to_hidden.getShape().getNumberOfColumns() + j] << ", ";
                 }
 
                 std::cout<< std::endl << std::endl;
-            }
+            }*/
 
-            return 0;*/
+            /*for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W_hidden_to_output.getShape().getNumberOfRows(); i++)
+            {
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W_hidden_to_output.getShape().getNumberOfColumns(); j++)
+                {
+                    std::cout<< W_hidden_to_output[j*W_hidden_to_output.getShape().getNumberOfColumns() + i] << ", ";
+                }
+
+                std::cout<< std::endl;
+            }*/
+            
+            //return 0;
             
             if (arg_save_initial_weights.i)
             {
@@ -406,6 +526,7 @@ int main(int argc, char* argv[])
     {
         //SKIP_GRAM_TRAINING_LOOP(default_epoch, W_input_to_hidden, W_hidden_to_output, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_lr_decay, default_rs, double, stop_training_flag, /*arg_ns.i ? true : false*/ number_of_negative_samples, default_clip_gradients_threshold, arg_shuffle_target_context_pairs.i ? true : false, arg_verbose.i ? true : false);
 
+        std::cout<< "Start training" << std::endl;
         SKIP_GRAM_TRAINING_LOOP(data_parser, default_epoch, W_input_to_hidden, W_hidden_to_output, epoch_loss, epoch_loss_previous, vocab, pairs, default_lr, default_lr_decay, default_rs, double, stop_training_flag, /*arg_ns.i ? true : false*/ number_of_negative_samples, default_clip_gradients_threshold, arg_shuffle_target_context_pairs.i ? true : false, arg_verbose.i ? true : false);
     }
     

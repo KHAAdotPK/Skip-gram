@@ -34,7 +34,7 @@
    0.01 to 0.001: This is a common starting point for many deep learning tasks.
    Even lower (e.g., 0.0001 or less): Depending on your specific dataset and network architecture, you might need an even smaller learning rate
  */
-#define SKIP_GRAM_DEFAULT_LEARNING_RATE 0.00001
+#define SKIP_GRAM_DEFAULT_LEARNING_RATE 0.025
 /*
     Number of neurons in the hidden layer and this represents the size of the hidden layer in the neural network.
     10 neurons is small size, suitable for small vocabulary.

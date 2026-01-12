@@ -3,7 +3,12 @@
     Q@khaa.pk
  */
 
-// .\skipy.exe corpus ./INPUT.txt lr 0.01 epoch 10 rs 0.0000009 loop 0 verbose --input w1-7.dat w2-7.dat --output w1-8.dat w2-8.dat
+/*
+    Model Notes:- 
+    1. Note on Loss Values: Don't expect the loss to ever hit zero. In Skip-gram with Negative Sampling,
+       a total loss around 10–15 is often the "global minimum" because natural language is inherently fuzzy
+       (a word can't be 100% related to one word and 0% related to all others).
+ */ 
 
 #include <iostream>
 
@@ -22,6 +27,7 @@
 #define INITIAL_W2_WEIGHT_TXT_FILE          "W2initial.txt"
 #define TRAINED_W1_WEIGHT_TXT_FILE          "W1trained.txt"
 #define TRAINED_W2_WEIGHT_TXT_FILE          "W2trained.txt"
+#define DEFAULT_PAIRS_FILE_NAME             "pairs.dat"
 
 #ifdef GRAMMAR_END_OF_TOKEN_MARKER
 #undef GRAMMAR_END_OF_TOKEN_MARKER
@@ -36,7 +42,7 @@
 #ifdef SKIP_GRAM_EMBEDDNG_VECTOR_SIZE
 #undef SKIP_GRAM_EMBEDDNG_VECTOR_SIZE
 #endif
-#define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 50
+#define SKIP_GRAM_EMBEDDNG_VECTOR_SIZE 8
 
 // Start with small values (e.g., 0.001) and adjust based on performance.
 #ifdef SKIP_GRAM_REGULARIZATION_STRENGTH
@@ -47,12 +53,12 @@
 #ifdef SKIP_GRAM_CONTEXT_WINDOW_SIZE
 #undef SKIP_GRAM_CONTEXT_WINDOW_SIZE
 #endif
-#define SKIP_GRAM_CONTEXT_WINDOW_SIZE 5
+#define SKIP_GRAM_CONTEXT_WINDOW_SIZE 1
 
 #ifdef SKIP_GRAM_WINDOW_SIZE
 #undef SKIP_GRAM_WINDOW_SIZE
 #endif
-#define SKIP_GRAM_WINDOW_SIZE 5
+#define SKIP_GRAM_WINDOW_SIZE 1
 
 #ifdef SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD
 #undef SKIP_GRAM_CLIP_GRADIENTS_DEFAULT_THRESHOLD
@@ -72,7 +78,7 @@
 #ifdef SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES
 #undef SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES 
 #endif
-#define SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES 5
+#define SKIP_GRAM_DEFAULT_NUMBER_OF_NEGATIVE_SAMPLES 0
 
 //#include "../lib/argsv-cpp/lib/parser/parser.hh"
 //#include "../lib/sundry/cooked_read_new.hh"
@@ -97,6 +103,8 @@ save_initial_weights --save_initial_weights (Saves the initial \"randomly initia
 shuffle_target_context_pairs --shuffle_target_context_pairs (Shuffles the target/center word and its context words during training, at the start of each new epoch begins.)\n\
 random_number_generator_seed --random_number_generator_seed (Sets the seed for the random number generator.)\n\
 learning_rate_decay --learning_rate_decay lr_decay --lr_decay learning_rate_scheduling --learning_rate_scheduling (It is a technique in ML where the learning rate gradually decreases over time during training, typically starting with a larger value to allow for bigger parameter updates and faster initial learning. This command optionaly accepts an argument. If you want the learning rate to remain constant throughout training, set the learning rate decay factor to 1)\n\
-clip_gradients_threshold --clip_gradients_threshold (Enable and optinally sets threshold for gradient clipping to prevent exploding gradients, recommended: 1.0–5.0.)\n"
+clip_gradients_threshold --clip_gradients_threshold (Enable and optinally sets threshold for gradient clipping to prevent exploding gradients, recommended: 1.0–5.0.)\n\
+write_pairs --write_pairs (Writes the pairs of target/center words and their surrounding context words to a file.)\n\
+read_pairs --read_pairs (Reads the pairs of target/center words and their surrounding context words from a file.)\n"
 
 #endif
