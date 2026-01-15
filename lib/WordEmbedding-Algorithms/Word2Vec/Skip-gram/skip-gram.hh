@@ -1337,9 +1337,11 @@ forward_propogation<T> forward(Collective<T>& W1, Collective<T>& W2, Collective<
             Instead of directly using a one-hot input vector, this implementation uses a linked list of word pairs.
             Each pair provides the index of the center word, which serves to extract the relevant embedding from 𝑊1.
             The embedding for the center word is stored in the hidden layer vector h.
-         */        
+         */
+        //std::cout<< "Secire.... .... " << std::endl;  
+        //std::cout<< pair->getCenterWord() << std::endl;      
         h = W1.slice(W1.getShape().getNumberOfColumns()*(pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE), W1.getShape().getNumberOfColumns());
-        
+               
         /*std::cout<< pair->getCenterWord() - INDEX_ORIGINATES_AT_VALUE << "--> ";
         for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W1.getShape().getNumberOfColumns(); i++)
         {

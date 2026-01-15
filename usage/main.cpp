@@ -397,9 +397,9 @@ int main(int argc, char* argv[])
                 }
             }
 
-            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W_hidden_to_output.getShape().getNumberOfRows(); i++)
+            for (cc_tokenizer::string_character_traits<char>::size_type i = 0; i < W_hidden_to_output.getShape().getNumberOfColumns(); i++)
             {
-                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W_hidden_to_output.getShape().getNumberOfColumns(); j++)
+                for (cc_tokenizer::string_character_traits<char>::size_type j = 0; j < W_hidden_to_output.getShape().getNumberOfRows(); j++)
                 {
                     W_hidden_to_output[j*W_hidden_to_output.getShape().getNumberOfColumns() + i] = dis(rd);
                 }
